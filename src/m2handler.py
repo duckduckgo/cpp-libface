@@ -80,10 +80,13 @@ def handle_autocomplete(req, url, m):
         return
 
     n = 10
-    if "n" in q:
-        _n = int(q["n"])
-        if _n <= 16 and _n > 0:
-            n = _n
+    try:
+        if "n" in q:
+            _n = int(q["n"])
+            if _n <= 16 and _n > 0:
+                n = _n
+    except:
+        pass
 
     print "Phrase: %s" % phrase
 
@@ -134,6 +137,9 @@ def handle_import(req, url, m):
         # print l
         l = l.strip()
         c = l.split("\t")
+        if len(c) != 2:
+            raise RuntimeError("The line '%s' is not a TSV" % (l, ))
+
         e = Entry(c[1].lower(), int(c[0]))
         # print "Entry: " + str(e)
         ac.insert(e)
