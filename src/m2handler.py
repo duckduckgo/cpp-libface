@@ -139,10 +139,11 @@ def handle_import(req, url, m):
         c = l.split("\t")
         if len(c) != 2:
             print "%d: The line '%s' is not a TSV" % (ctr+1, l)
+        else:
+            e = Entry(c[1].lower(), int(c[0]))
+            # print "Entry: " + str(e)
+            ac.insert(e)
 
-        e = Entry(c[1].lower(), int(c[0]))
-        # print "Entry: " + str(e)
-        ac.insert(e)
         ctr += 1
         l = f.readline()
 
