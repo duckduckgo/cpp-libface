@@ -150,7 +150,9 @@ def handle_import(req, url, m):
     ac.commit()
     f.close()
 
-    conn.reply_http(req, "SUCCESS: Added %d records" % ctr)
+    succ_str = "SUCCESS: Added %d records" % ctr
+    print succ_str
+    conn.reply_http(req, succ_str)
     return
 
 
