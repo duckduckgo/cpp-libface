@@ -138,7 +138,7 @@ def handle_import(req, url, m):
         l = l.strip()
         c = l.split("\t")
         if len(c) != 2:
-            raise RuntimeError("The line '%s' is not a TSV" % (l, ))
+            print "%d: The line '%s' is not a TSV" % (ctr+1, l))
 
         e = Entry(c[1].lower(), int(c[0]))
         # print "Entry: " + str(e)
