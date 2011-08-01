@@ -171,6 +171,10 @@ def url_handler():
         req = conn.recv()
         print "URL: " + req.path
 
+        if req.is_disconnect():
+            print "DISCONNECT request:", req.headers, req.body, req.conn_id
+            continue
+
         # response = "<pre>" + str(dir(req)) + "</pre>"
         # print response
         # print req.path
