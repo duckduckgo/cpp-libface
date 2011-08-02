@@ -91,6 +91,7 @@ def handle_autocomplete(req, url, m):
     print "Phrase: %s" % phrase
 
     options = ac.query(phrase, n)
+    print "options:", options
     oa = [ ]
     for o in options:
         oa.append({"phrase": o.phrase.decode('utf8'), "score": o.score})
@@ -137,10 +138,13 @@ def handle_import(req, url, m):
         # print l
         l = l.strip()
         c = l.split("\t")
-        if len(c) != 2:
+        if len(c) != 2 or len(c[1].strip()) is 0:
             print "%d: The line '%s' is not a TSV" % (ctr+1, l)
         else:
-            e = Entry(c[1].lower(), int(c[0]))
+            phrase = c[1].strip().lower()
+            count  = int(c[0])
+            e = Entry(phrase, count)
+
             # print "Entry: " + str(e)
             ac.insert(e)
 
@@ -149,6 +153,10 @@ def handle_import(req, url, m):
 
     ac.commit()
     f.close()
+
+    print "len of phrases:", len(ac.phrases)
+    print "phrases preview:", ac.phrases[0:20]
+    print "len of segment tree:", len(ac.segTree.impl), ac.segTree.size
 
     succ_str = "SUCCESS: Added %d records" % ctr
     print succ_str

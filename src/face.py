@@ -30,42 +30,51 @@ import math
 import heapq
 
 
-def lowerBound(seq, elem, lessThanEq):
+def lowerBound(seq, elem, lessThan):
     """
     Find the first position(index) in sequence 'seq' before
-    which elem can be inserted. Use lessThanEq as the comparator.
+    which elem can be inserted. Use lessThan as the comparator.
 
     Complexity: O(log n)
     n -> len(seq)
     """
     f = 0
     l = len(seq)
+    ti = f
     while f < l:
         m = (f+l) / 2
-        if lessThanEq(elem, seq[m]):
-            l = m
-        else:
+
+        if lessThan(seq[m], elem, 1):
+            # Lower Bound lies in the right half
+            ti = m
             f = m + 1
-    return f
+        else:
+            l = m
+
+    return ti
 
 
-def upperBound(seq, elem, greaterThanEq):
+def upperBound(seq, elem, lessThan):
     """
     Find the last position(index) in sequence 'seq' before
-    which elem can be inserted. Use greaterThanEq as the comparator.
+    which elem can be inserted. Use lessThan as the comparator.
 
     Complexity: O(log n)
     n -> len(seq)
     """
     f = 0
     l = len(seq)
+    ti = l
     while f < l:
         m = (f+l) / 2
-        if greaterThanEq(elem, seq[m]):
-            f = m + 1
-        else:
+
+        if lessThan(elem, seq[m], 0):
             l = m
-    return f
+        else:
+            ti = m
+            f = m + 1
+
+    return ti
 
 
 def merge(seq1, seq2, lessThan):
@@ -220,6 +229,12 @@ def entry_less_than_phrase(lhs, rhs):
 def entry_less_than_score(lhs, rhs):
     return lhs.score < rhs.score
 
+def entry_lt(lhs, rhs, elemIndex):
+    if elemIndex is 0:
+        return lhs.phrase < rhs.phrase[0:len(lhs.phrase)]
+    else:
+        return lhs.phrase[0:len(rhs.phrase)] < rhs.phrase
+
 def entry_lteq(lhs, rhs):
     return lhs.phrase <= rhs.phrase
 
@@ -325,8 +340,10 @@ class AutoComplete(object):
         Complexity: O(k log n)
         n -> Number of phrases in the dictionary
         """
-        pos1 = lowerBound(self.phrases, Entry(prefix, 0), entry_lteq)
-        pos2 = upperBound(self.phrases, Entry(prefix, 0), entry_gteq)
+        pos1 = lowerBound(self.phrases, Entry(prefix, 0), entry_lt)
+        pos2 = upperBound(self.phrases, Entry(prefix, 0), entry_lt)
+ 
+        # print "pos1: %d, pos2: %d" % (pos1, pos2)
 
         if pos2 - pos1 <= AutoComplete.NAIVE_ALGO_THRESHOLD_MULTIPLIER * k:
             tmp = self.phrases[pos1:pos2]
@@ -403,7 +420,12 @@ def test():
 
     ac.commit()
 
+    print "phrases:", ac.phrases
     print ac.query("d", 4)
+    print ac.query("a", 4)
+    print ac.query("g", 4)
+    print ac.query("h", 4)
+
     # print dt.now()
     # for i in xrange(0, 1000):
     #     ac.query("how i", 10)
