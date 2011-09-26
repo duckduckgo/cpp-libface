@@ -8,11 +8,15 @@
 // Custom-includes
 #include <include/segtree.hpp>
 #include <include/phrase_map.hpp>
-
+#include <include/suggest.hpp>
 
 // C++-headers
 #include <string>
+#include <fstream>
 
+PhraseMap pm;
+SegmentTree st;
+bool building = false;
 
 std::string
 get_qs(const struct mg_request_info *request_info, std::string const& key) {
@@ -32,27 +36,76 @@ get_qs(const struct mg_request_info *request_info, std::string const& key) {
     return rv;
 }
 
+void
+print_HTTP_response(struct mg_connection *conn, 
+                    int code, const char *description, 
+                    const char *content_type = "text/plain") {
+    mg_printf(conn, "HTTP/1.1 %d %s\r\n"
+              "Content-Type: %s\r\n\r\n", code, description, content_type);
+}
+
 static void*
 handle_import(enum mg_event event,
               struct mg_connection *conn,
               const struct mg_request_info *request_info) {
-    mg_printf(conn, "HTTP/1.1 200 OK\r\n"
-              "Content-Type: text/plain\r\n\r\n");
     std::string file = get_qs(request_info, "file");
+    std::ifstream fin(file.c_str());
 
+    if (!fin) {
+        print_HTTP_response(conn, 404, "Not Found");
+    }
+    else {
+        building = true;
+        pm.repr.clear();
+        char buff[4096];
 
-    return "";
+        while (fin) {
+            fin.getline(buff, 4096);
+            int llen = fin.gcount();
+            buff[4095] = '\0';
+            int tabpos = std::find(buff, buff + llen, '\t') - buff;
+            if (tabpos < llen && tabpos > 0 && tabpos < llen - 1) {
+                std::string phrase(buff, tabpos);
+                uint_t weight = atoi(buff + tabpos + 1);
+                pm.insert(phrase, weight);
+            }
+        }
+        pm.finalize();
+        vui_t weights;
+        for (size_t i = 0; i < pm.repr.size(); ++i) {
+            weights.push_back(pm.repr[i].second);
+        }
+        st.initialize(weights);
+
+        print_HTTP_response(conn, 200, "OK");
+        mg_printf(conn, "Successfully added %d records from \"%s\"", weights.size(), file.c_str());
+
+        building = false;
+    }
+
+    return (void*)"";
 }
 
 static void*
 handle_suggest(enum mg_event event,
                struct mg_connection *conn,
                const struct mg_request_info *request_info) {
-    mg_printf(conn, "HTTP/1.1 200 OK\r\n"
-              "Content-Type: text/plain\r\n\r\n");
-    std::string q = get_qs(request_info, "q");
+    print_HTTP_response(conn, 200, "OK");
 
-    return "";
+    std::string q  = get_qs(request_info, "q");
+    std::string sn = get_qs(request_info, "n");
+    int n = sn.empty() ? 16 : atoi(sn.c_str());
+    if (n < 0 || n > 16) {
+        n = 16;
+    }
+
+    vpsui_t results = suggest(pm, st, q, n);
+
+    for (size_t i = 0; i < results.size(); ++i) {
+        mg_printf(conn, "%s:%d\n", results[i].first.c_str(), results[i].second);
+    }
+
+    return (void*)"";
 }
 
 static void*
@@ -62,7 +115,7 @@ handle_stats(enum mg_event event,
     mg_printf(conn, "HTTP/1.1 200 OK\r\n"
               "Content-Type: text/plain\r\n\r\n");
 
-    return "";
+    return (void*)"";
 }
 
 static void*
@@ -71,7 +124,8 @@ handle_invalid_request(enum mg_event event,
                        const struct mg_request_info *request_info) {
     mg_printf(conn, "HTTP/1.1 404 Not Found\r\n"
               "Content-Type: text/plain\r\n\r\n");
-    return "";
+
+    return (void*)"";
 }
 
 
@@ -83,40 +137,20 @@ callback(enum mg_event event,
     if (event == MG_NEW_REQUEST) {
         std::string request_uri = request_info->uri;
         if (request_uri == "/face/suggest/") {
-            retrurn handle_suggest(event, conn, request_info);
+            return handle_suggest(event, conn, request_info);
         }
         else if (request_uri == "/face/import/") {
-            retrurn handle_import(event, conn, request_info);
+            return handle_import(event, conn, request_info);
         }
         else if (request_uri == "/face/stats/") {
-            retrurn handle_stats(event, conn, request_info);
+            return handle_stats(event, conn, request_info);
         }
         else {
-            retrurn handle_invalid_request(event, conn, request_info);
+            return handle_invalid_request(event, conn, request_info);
         }
     }
-
-    // Echo requested URI back to the client
-
-    mg_printf(conn, "HTTP/1.1 200 OK\r\n"
-              "Content-Type: text/plain\r\n\r\n");
-    char q[1024];
-    q[1023] = '\0';
-    // printf("query string: %s\n", request_info->query_string);
-
-    int ql = 0;
-    if (request_info->query_string) {
-      ql = mg_get_var(request_info->query_string, 
-		      strlen(request_info->query_string), 
-		      "q", q, 1023);
-    }
-
-    // printf("%p, %d\n", q, ql);
-
-    mg_printf(conn, "q: %s, ql: %d", q ? q : "", ql);
-    return empty_string;  // Mark as processed
-  } else {
-    return NULL;
+    else {
+        return NULL;
   }
 }
 
