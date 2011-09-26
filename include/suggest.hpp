@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include <include/utils.hpp>
+
 using namespace std;
 
 typedef unsigned int uint_t;
@@ -67,18 +69,27 @@ suggest(PhraseMap &pm, SegmentTree &st, std::string prefix, int n = 16) {
 
     while (ret.size() < n && !heap.empty()) {
         PhraseRange pr = heap.top();
+        heap.pop();
         ret.push_back(pm.repr[pr.index]);
 
         uint_t lower = pr.first;
         uint_t upper = pr.index - 1;
-        if (lower <= upper) {
+
+        // Prevent underflow
+        if (pr.index - 1 < pr.index && lower <= upper) {
+            // cerr<<"[1] adding to heap: "<<lower<<", "<<upper<<", "<<best.first<<", "<<best.second<<endl;
+
             best = st.query_max(lower, upper);
             heap.push(PhraseRange(lower, upper, best.first, best.second));
         }
 
         lower = pr.index + 1;
         upper = pr.last;
-        if (lower <= upper) {
+
+        // Prevent overflow
+        if (pr.index + 1 > pr.index && lower <= upper) {
+            // cerr<<"[2] adding to heap: "<<lower<<", "<<upper<<", "<<best.first<<", "<<best.second<<endl;
+
             best = st.query_max(lower, upper);
             heap.push(PhraseRange(lower, upper, best.first, best.second));
         }
@@ -101,7 +112,7 @@ naive_suggest(PhraseMap &pm, SegmentTree &st, std::string prefix, int n = 16) {
     while (ret.size() < n && !indexes.empty()) {
         uint_t mi = 0;
         for (size_t i = 1; i < indexes.size(); ++i) {
-            if (pm.repr[i].second > pm.repr[mi].second) {
+            if (pm.repr[indexes[i]].second > pm.repr[indexes[mi]].second) {
                 mi = i;
             }
         }
@@ -136,9 +147,33 @@ namespace _suggest {
 
         st.initialize(weights);
 
-        assert(suggest(pm, st, "d") == naive_suggest(pm, st, "d"));
+        cout<<"\n";
+        cout<<"suggest(\"d\"):\n"<<suggest(pm, st, "d")<<endl;
+        cout<<"naive_suggest(\"d\"):\n"<<naive_suggest(pm, st, "d")<<endl;
 
-        assert(suggest(pm, st, "a") == naive_suggest(pm, st, "a"));
+        cout<<"\n";
+        cout<<"suggest(\"a\"):\n"<<suggest(pm, st, "a")<<endl;
+        cout<<"naive_suggest(\"a\"):\n"<<naive_suggest(pm, st, "a")<<endl;
+
+        cout<<"\n";
+        cout<<"suggest(\"b\"):\n"<<suggest(pm, st, "b")<<endl;
+        cout<<"naive_suggest(\"b\"):\n"<<naive_suggest(pm, st, "b")<<endl;
+
+        cout<<"\n";
+        cout<<"suggest(\"duck\"):\n"<<suggest(pm, st, "duck")<<endl;
+        cout<<"naive_suggest(\"duck\"):\n"<<naive_suggest(pm, st, "duck")<<endl;
+
+        cout<<"\n";
+        cout<<"suggest(\"k\"):\n"<<suggest(pm, st, "k")<<endl;
+        cout<<"naive_suggest(\"k\"):\n"<<naive_suggest(pm, st, "k")<<endl;
+
+        cout<<"\n";
+        cout<<"suggest(\"ka\"):\n"<<suggest(pm, st, "ka")<<endl;
+        cout<<"naive_suggest(\"ka\"):\n"<<naive_suggest(pm, st, "ka")<<endl;
+
+        cout<<"\n";
+        cout<<"suggest(\"c\"):\n"<<suggest(pm, st, "c")<<endl;
+        cout<<"naive_suggest(\"c\"):\n"<<naive_suggest(pm, st, "c")<<endl;
 
         return 0;
     }
