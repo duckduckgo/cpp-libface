@@ -99,6 +99,7 @@ public:
     }
 
     // qf & ql are indexes; both inclusive.
+    // first -> value, second -> index
     pui_t
     query_max(uint_t qf, uint_t ql) {
         return this->_query_max(0, 0, this->len - 1, qf, ql);
