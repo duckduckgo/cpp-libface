@@ -5,6 +5,11 @@
 #include <unistd.h>
 #include "mongoose.h"
 
+// Custom-includes
+#include <include/segtree.hpp>
+#include <include/phrase_map.hpp>
+
+
 // C++-headers
 #include <string>
 
