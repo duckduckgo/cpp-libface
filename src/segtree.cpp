@@ -1,3 +1,11 @@
+#if !defined LIBFACE_SEGTREE_HPP
+#define LIBFACE_SEGTREE_HPP
+
+#if defined PRODUCTION
+#define main _test
+#endif
+
+
 #include <iostream>
 #include <vector>
 #include <utility>
@@ -152,5 +160,6 @@ main() {
     }
   }
 
-
 }
+
+#endif // LIBFACE_SEGTREE_HPP
