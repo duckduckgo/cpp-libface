@@ -13,6 +13,14 @@
 // C++-headers
 #include <string>
 #include <fstream>
+#include <algorithm>
+
+#if defined NDEBUG
+#define DCERR(X)
+#else
+#define DCERR(X) cerr<<X;
+#endif
+
 
 PhraseMap pm;
 SegmentTree st;
@@ -44,12 +52,58 @@ print_HTTP_response(struct mg_connection *conn,
               "Content-Type: %s\r\n\r\n", code, description, content_type);
 }
 
+char
+to_lowercase(char c) {
+    return std::tolower(c);
+}
+
+
+std::string
+uint_to_string(uint_t n) {
+    std::string ret;
+    if (!n) {
+        ret = "0";
+    }
+    else {
+        while (n) {
+            ret.insert(0, 1, ('0' + (n % 10)));
+            n /= 10;
+        }
+    }
+    return ret;
+}
+
+std::string
+to_json_string(vpsui_t const& suggestions) {
+    std::string ret = "[";
+    ret.reserve(512);
+    for (vpsui_t::const_iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
+        std::string p;
+        p.reserve(i->first.size() + 10);
+        for (size_t j = 0; j < i->first.size(); ++j) {
+            if (i->first[j] == '"') {
+                p += "\\\"";
+            }
+            else {
+                p += i->first[j];
+            }
+        }
+
+        std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
+        ret += " { \"phrase\": \"" + p + "\", \"score\": " + uint_to_string(i->second) + "}" + trailer;
+    }
+    ret += "]";
+    return ret;
+}
+
 static void*
 handle_import(enum mg_event event,
               struct mg_connection *conn,
               const struct mg_request_info *request_info) {
     std::string file = get_qs(request_info, "file");
     std::ifstream fin(file.c_str());
+
+    DCERR("handle_import::file:"<<file<<endl);
 
     if (!fin) {
         print_HTTP_response(conn, 404, "Not Found");
@@ -66,6 +120,10 @@ handle_import(enum mg_event event,
             int tabpos = std::find(buff, buff + llen, '\t') - buff;
             if (tabpos < llen && tabpos > 0 && tabpos < llen - 1) {
                 std::string phrase(buff, tabpos);
+                // Convert to lowercase
+                std::transform(phrase.begin(), phrase.end(), 
+                               phrase.begin(), to_lowercase);
+
                 uint_t weight = atoi(buff + tabpos + 1);
                 pm.insert(phrase, weight);
             }
@@ -94,6 +152,9 @@ handle_suggest(enum mg_event event,
 
     std::string q  = get_qs(request_info, "q");
     std::string sn = get_qs(request_info, "n");
+
+    DCERR("handle_suggest::q:"<<q<<", sn:"<<sn<<endl);
+
     int n = sn.empty() ? 16 : atoi(sn.c_str());
     if (n < 0 || n > 16) {
         n = 16;
@@ -101,9 +162,12 @@ handle_suggest(enum mg_event event,
 
     vpsui_t results = suggest(pm, st, q, n);
 
-    for (size_t i = 0; i < results.size(); ++i) {
-        mg_printf(conn, "%s:%d\n", results[i].first.c_str(), results[i].second);
-    }
+    /*
+      for (size_t i = 0; i < results.size(); ++i) {
+      mg_printf(conn, "%s:%d\n", results[i].first.c_str(), results[i].second);
+      }
+    */
+    mg_printf(conn, "%s", to_json_string(results).c_str());
 
     return (void*)"";
 }
