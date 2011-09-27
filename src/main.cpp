@@ -3,9 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include "mongoose.h"
+#include <time.h>
 
 // Custom-includes
+#include "mongoose.h"
 #include <include/segtree.hpp>
 #include <include/phrase_map.hpp>
 #include <include/suggest.hpp>
@@ -112,6 +113,8 @@ handle_import(enum mg_event event,
     }
     else {
         building = true;
+        time_t start_time = time(NULL);
+
         pm.repr.clear();
         char buff[4096];
 
@@ -121,12 +124,23 @@ handle_import(enum mg_event event,
             buff[4095] = '\0';
             int tabpos = std::find(buff, buff + llen, '\t') - buff;
             if (tabpos < llen && tabpos > 0 && tabpos < llen - 1) {
-                std::string phrase(buff, tabpos);
+                std::string phrase(buff + tabpos + 1, llen - tabpos - 2);
+                size_t data_start = 0;
+                while (data_start < phrase.size() && isspace(phrase[data_start])) {
+                    ++data_start;
+                }
+                if (data_start > 0) {
+                    phrase = phrase.substr(data_start);
+                }
+
                 // Convert to lowercase
                 std::transform(phrase.begin(), phrase.end(), 
                                phrase.begin(), to_lowercase);
 
-                uint_t weight = atoi(buff + tabpos + 1);
+                buff[tabpos] = '\0';
+
+                uint_t weight = atoi(buff);
+                DCERR("Adding: "<<phrase<<", "<<weight<<endl);
                 pm.insert(phrase, weight);
             }
         }
@@ -138,7 +152,8 @@ handle_import(enum mg_event event,
         st.initialize(weights);
 
         print_HTTP_response(conn, 200, "OK");
-        mg_printf(conn, "Successfully added %d records from \"%s\"", weights.size(), file.c_str());
+        mg_printf(conn, "Successfully added %d records from \"%s\" in %d second(s).", 
+                  weights.size(), file.c_str(), time(NULL) - start_time);
 
         building = false;
     }
