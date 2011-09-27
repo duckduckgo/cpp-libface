@@ -25,6 +25,8 @@
 PhraseMap pm;
 SegmentTree st;
 bool building = false;
+unsigned long long nreq = 0;
+
 
 std::string
 get_qs(const struct mg_request_info *request_info, std::string const& key) {
@@ -148,6 +150,13 @@ static void*
 handle_suggest(enum mg_event event,
                struct mg_connection *conn,
                const struct mg_request_info *request_info) {
+
+    ++nreq;
+    if (building) {
+        print_HTTP_response(conn, 412, "Busy");
+        return (void*)"";
+    }
+
     print_HTTP_response(conn, 200, "OK");
 
     std::string q  = get_qs(request_info, "q");
@@ -155,8 +164,8 @@ handle_suggest(enum mg_event event,
 
     DCERR("handle_suggest::q:"<<q<<", sn:"<<sn<<endl);
 
-    int n = sn.empty() ? 16 : atoi(sn.c_str());
-    if (n < 0 || n > 16) {
+    unsigned int n = sn.empty() ? 16 : atoi(sn.c_str());
+    if (n > 16) {
         n = 16;
     }
 
@@ -176,8 +185,14 @@ static void*
 handle_stats(enum mg_event event,
              struct mg_connection *conn,
              const struct mg_request_info *request_info) {
-    mg_printf(conn, "HTTP/1.1 200 OK\r\n"
-              "Content-Type: text/plain\r\n\r\n");
+    print_HTTP_response(conn, 200, "OK");
+    mg_printf(conn, "Handled: %d connections\n", nreq);
+    if (building) {
+        mg_printf(conn, "Currently building data store\n");
+    }
+    else {
+        mg_printf(conn, "Data store size: %d entries\n", pm.repr.size());
+    }
 
     return (void*)"";
 }
@@ -186,8 +201,8 @@ static void*
 handle_invalid_request(enum mg_event event,
                        struct mg_connection *conn,
                        const struct mg_request_info *request_info) {
-    mg_printf(conn, "HTTP/1.1 404 Not Found\r\n"
-              "Content-Type: text/plain\r\n\r\n");
+    print_HTTP_response(conn, 404, "Not Found");
+    mg_printf(conn, "Sorry, but the page you requested could not be found");
 
     return (void*)"";
 }

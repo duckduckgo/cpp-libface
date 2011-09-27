@@ -67,7 +67,7 @@ public:
         else {
             pui_t lhs = this->_init(ni*2 + 1, b, m, elems);
             pui_t rhs = this->_init(ni*2 + 2, m+1, e, elems);
-            return this->repr[ni] = lhs.first > rhs.first ? lhs : rhs;
+            return this->repr[ni] = (lhs.first > rhs.first ? lhs : rhs);
         }
     }
 
@@ -75,7 +75,7 @@ public:
     _query_max(uint_t ni, uint_t b, uint_t e, uint_t qf, uint_t ql) {
         // printf("_query_max(%u, %u, %u, %u, %u)\n", ni, b, e, qf, ql);
         if (qf > e || ql < b) {
-            return pui_t(-1, -1);
+            return pui_t(~0L, ~0L);
         }
 
         if (b >= qf && e <= ql) {
@@ -86,10 +86,10 @@ public:
         pui_t lhs = this->_query_max(ni*2 + 1, b, m, qf, ql);
         pui_t rhs = this->_query_max(ni*2 + 2, m+1, e, qf, ql);
 
-        if (lhs.second == -1) {
+        if (lhs.second == ~0UL) {
             return rhs;
         }
-        else if (rhs.second == -1) {
+        else if (rhs.second == ~0UL) {
             return lhs;
         }
         else {
@@ -149,8 +149,8 @@ namespace segtree {
         SegmentTree st;
         st.initialize(v);
 
-        for (int i = 0; i < v.size(); ++i) {
-            for (int j = i; j < v.size(); ++j) {
+        for (size_t i = 0; i < v.size(); ++i) {
+            for (size_t j = i; j < v.size(); ++j) {
                 pui_t one = st.query_max(i, j);
                 pui_t two = naive_query_max(v, i, j);
                 printf("query_max(%d, %d) == (%d, %d)\n", i, j, one.first, two.first);
