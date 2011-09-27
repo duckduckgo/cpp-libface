@@ -26,10 +26,107 @@
 #define NMAX 32
 #endif
 
+// Undefine the macro below to use C-style I/O routines.
+// #define USE_CXX_IO
+
+
 PhraseMap pm;
 SegmentTree st;
 bool building = false;
 unsigned long long nreq = 0;
+
+
+#define ILP_BEFORE_NON_WS  0
+#define ILP_NUMERIC        1
+#define ILP_BEFORE_TAB     2
+#define ILP_AFTER_TAB      3
+#define ILP_CHAR_DATA      4
+
+
+struct InputLineParser {
+    int state;
+    const char *buff;
+    int *pn;
+    std::string *pphrase;
+
+    InputLineParser(const char *_buff, int *_pn, std::string *_pphrase)
+        : state(ILP_BEFORE_NON_WS), buff(_buff), pn(_pn), pphrase(_pphrase) {
+    }
+
+    void
+    start_parsing() {
+        int i = 0;
+        int n = 0;
+        const char *cd_start = NULL;
+        int cd_len = 0;
+
+        while (buff[i]) {
+            char ch = buff[i];
+            DCERR("State: "<<this->state<<", read: "<<ch<<"\n");
+
+            switch (this->state) {
+            case ILP_BEFORE_NON_WS:
+                if (!isspace(ch)) {
+                    this->state = ILP_NUMERIC;
+                }
+                else {
+                    ++i;
+                }
+                break;
+
+            case ILP_NUMERIC:
+                if (isdigit(ch)) {
+                    n *= 10;
+                    n += (ch - '0');
+                    ++i;
+                }
+                else {
+                    this->state = ILP_BEFORE_TAB;
+                    on_numeric(n);
+                }
+                break;
+
+            case ILP_BEFORE_TAB:
+                if (ch == '\t') {
+                    this->state = ILP_AFTER_TAB;
+                }
+                ++i;
+                break;
+
+            case ILP_AFTER_TAB:
+                if (isspace(ch)) {
+                    ++i;
+                }
+                else {
+                    cd_start = this->buff + i;
+                    this->state = ILP_CHAR_DATA;
+                }
+                break;
+
+            case ILP_CHAR_DATA:
+                DCERR("State: ILP_CHAR_DATA: "<<buff[i]<<endl);
+                ++cd_len;
+                ++i;
+                break;
+            };
+        }
+        on_char_data(cd_start, cd_len);
+    }
+
+    void
+    on_numeric(int n) {
+        *(this->pn) = n;
+    }
+
+    void
+    on_char_data(const char *data, int len) {
+        if (data && *data && len) {
+            DCERR("on_char_data("<<data<<", "<<len<<")\n");
+            this->pphrase->assign(data, len);
+        }
+    }
+
+};
 
 
 std::string
@@ -107,7 +204,11 @@ handle_import(enum mg_event event,
               struct mg_connection *conn,
               const struct mg_request_info *request_info) {
     std::string file = get_qs(request_info, "file");
+#if defined USE_CXX_IO
     std::ifstream fin(file.c_str());
+#else
+    FILE *fin = fopen(file.c_str(), "r");
+#endif
 
     DCERR("handle_import::file:"<<file<<endl);
 
@@ -122,12 +223,49 @@ handle_import(enum mg_event event,
         pm.repr.clear();
         char buff[4096];
 
-        while (fin) {
+        while (
+#if defined USE_CXX_IO
+               fin
+#else
+            !feof(fin)
+#endif
+               ) {
+
+#if defined USE_CXX_IO
             fin.getline(buff, 4096);
+#else
+            char *got = fgets(buff, 4096, fin);
+#endif
+
             ++nlines;
 
+#if defined USE_CXX_IO
             const int llen = fin.gcount();
             buff[4095] = '\0';
+#else
+            if (!got) {
+                break;
+            }
+            const int llen = strlen(buff);
+            if (buff[llen-1] == '\n') {
+                buff[llen-1] = '\0';
+            }
+#endif
+
+
+#if 1
+            int weight = 0;
+            std::string phrase;
+            InputLineParser(buff, &weight, &phrase).start_parsing();
+
+            if (!phrase.empty()) {
+                std::transform(phrase.begin(), phrase.end(), 
+                               phrase.begin(), to_lowercase);
+                DCERR("Adding: "<<phrase<<", "<<weight<<endl);
+                pm.insert(phrase, weight);
+            }
+
+#else
             int tabpos = std::find(buff, buff + llen, '\t') - buff;
             if (tabpos < llen && tabpos > 0 && tabpos < llen - 1) {
                 int data_start = tabpos + 1;
@@ -152,7 +290,10 @@ handle_import(enum mg_event event,
                     pm.insert(phrase, weight);
                 }
             }
+#endif
         }
+
+        fclose(fin);
         pm.finalize();
         vui_t weights;
         for (size_t i = 0; i < pm.repr.size(); ++i) {
