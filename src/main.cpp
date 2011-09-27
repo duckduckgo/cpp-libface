@@ -22,6 +22,9 @@
 #define DCERR(X) cerr<<X;
 #endif
 
+#if !defined NMAX
+#define NMAX 32
+#endif
 
 PhraseMap pm;
 SegmentTree st;
@@ -113,35 +116,41 @@ handle_import(enum mg_event event,
     }
     else {
         building = true;
-        time_t start_time = time(NULL);
+        const time_t start_time = time(NULL);
+        int nlines = 0;
 
         pm.repr.clear();
         char buff[4096];
 
         while (fin) {
             fin.getline(buff, 4096);
-            int llen = fin.gcount();
+            ++nlines;
+
+            const int llen = fin.gcount();
             buff[4095] = '\0';
             int tabpos = std::find(buff, buff + llen, '\t') - buff;
             if (tabpos < llen && tabpos > 0 && tabpos < llen - 1) {
-                std::string phrase(buff + tabpos + 1, llen - tabpos - 2);
-                size_t data_start = 0;
-                while (data_start < phrase.size() && isspace(phrase[data_start])) {
+                int data_start = tabpos + 1;
+                int phrase_len = llen - tabpos - 2;
+
+                while (data_start < llen && isspace(buff[data_start])) {
                     ++data_start;
-                }
-                if (data_start > 0) {
-                    phrase = phrase.substr(data_start);
+                    --phrase_len;
                 }
 
-                // Convert to lowercase
-                std::transform(phrase.begin(), phrase.end(), 
-                               phrase.begin(), to_lowercase);
+                if (phrase_len > 0) {
+                    std::string phrase(buff + data_start, phrase_len);
 
-                buff[tabpos] = '\0';
+                    // Convert to lowercase
+                    std::transform(phrase.begin(), phrase.end(), 
+                                   phrase.begin(), to_lowercase);
 
-                uint_t weight = atoi(buff);
-                DCERR("Adding: "<<phrase<<", "<<weight<<endl);
-                pm.insert(phrase, weight);
+                    buff[tabpos] = '\0';
+
+                    uint_t weight = atoi(buff);
+                    DCERR("Adding: "<<phrase<<", "<<weight<<endl);
+                    pm.insert(phrase, weight);
+                }
             }
         }
         pm.finalize();
@@ -152,8 +161,8 @@ handle_import(enum mg_event event,
         st.initialize(weights);
 
         print_HTTP_response(conn, 200, "OK");
-        mg_printf(conn, "Successfully added %d records from \"%s\" in %d second(s).", 
-                  weights.size(), file.c_str(), time(NULL) - start_time);
+        mg_printf(conn, "Successfully added %d/%d records from \"%s\" in %d second(s)\n", 
+                  weights.size(), nlines-1, file.c_str(), time(NULL) - start_time);
 
         building = false;
     }
@@ -179,9 +188,9 @@ handle_suggest(enum mg_event event,
 
     DCERR("handle_suggest::q:"<<q<<", sn:"<<sn<<endl);
 
-    unsigned int n = sn.empty() ? 16 : atoi(sn.c_str());
-    if (n > 16) {
-        n = 16;
+    unsigned int n = sn.empty() ? NMAX : atoi(sn.c_str());
+    if (n > NMAX) {
+        n = NMAX;
     }
 
     vpsui_t results = suggest(pm, st, q, n);
@@ -191,7 +200,7 @@ handle_suggest(enum mg_event event,
       mg_printf(conn, "%s:%d\n", results[i].first.c_str(), results[i].second);
       }
     */
-    mg_printf(conn, "%s", to_json_string(results).c_str());
+    mg_printf(conn, "%s\n", to_json_string(results).c_str());
 
     return (void*)"";
 }
@@ -201,7 +210,7 @@ handle_stats(enum mg_event event,
              struct mg_connection *conn,
              const struct mg_request_info *request_info) {
     print_HTTP_response(conn, 200, "OK");
-    mg_printf(conn, "Handled: %d connections\n", nreq);
+    mg_printf(conn, "Answered %d queries\n", nreq);
     if (building) {
         mg_printf(conn, "Currently building data store\n");
     }
@@ -217,7 +226,7 @@ handle_invalid_request(enum mg_event event,
                        struct mg_connection *conn,
                        const struct mg_request_info *request_info) {
     print_HTTP_response(conn, 404, "Not Found");
-    mg_printf(conn, "Sorry, but the page you requested could not be found");
+    mg_printf(conn, "Sorry, but the page you requested could not be found\n");
 
     return (void*)"";
 }
