@@ -72,15 +72,14 @@ public:
 
     pui_t
     _query_max(uint_t ni, uint_t b, uint_t e, uint_t qf, uint_t ql) {
-        printf("_query_max(%u, %u, %u, %u, %u)\n", ni, b, e, qf, ql);
+        // printf("_query_max(%u, %u, %u, %u, %u)\n", ni, b, e, qf, ql);
         if (b > e || qf > e || ql < b) {
-            printf("[1] Returning: (-1, -1)\n");
-
+            // printf("[1] Returning: (-1, -1)\n");
             return pui_t(minus_one, minus_one);
         }
 
         if (b >= qf && e <= ql) {
-            printf("[2] Returning: (%d, %d)\n", this->repr[ni].first, this->repr[ni].second);
+            // printf("[2] Returning: (%d, %d)\n", this->repr[ni].first, this->repr[ni].second);
             return this->repr[ni];
         }
 
@@ -88,19 +87,19 @@ public:
         pui_t lhs = this->_query_max(ni*2 + 1, b, m, qf, ql);
         pui_t rhs = this->_query_max(ni*2 + 2, m+1, e, qf, ql);
 
-        printf("lhs.second is minus_one: %d, rhs.second is minus_one: %d\n", lhs.second == minus_one, rhs.second == minus_one);
+        // printf("lhs.second is minus_one: %d, rhs.second is minus_one: %d\n", lhs.second == minus_one, rhs.second == minus_one);
 
         if (lhs.second == minus_one) {
-            printf("[3] Returning: (%d, %d)\n", rhs.first, rhs.second);
+            // printf("[3] Returning: (%d, %d)\n", rhs.first, rhs.second);
             return rhs;
         }
         else if (rhs.second == minus_one) {
-            printf("[4] Returning: (%d, %d)\n", lhs.first, lhs.second);
+            // printf("[4] Returning: (%d, %d)\n", lhs.first, lhs.second);
             return lhs;
         }
         else {
             pui_t &tmp = lhs.first > rhs.first ? lhs : rhs;
-            printf("[5] Returning: (%d, %d)\n", tmp.first, tmp.second);
+            // printf("[5] Returning: (%d, %d)\n", tmp.first, tmp.second);
             return tmp;
         }
 
