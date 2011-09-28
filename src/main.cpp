@@ -62,7 +62,7 @@ struct InputLineParser {
 
         while (buff[i]) {
             char ch = buff[i];
-            DCERR("State: "<<this->state<<", read: "<<ch<<"\n");
+            // DCERR("State: "<<this->state<<", read: "<<ch<<"\n");
 
             switch (this->state) {
             case ILP_BEFORE_NON_WS:
@@ -104,7 +104,7 @@ struct InputLineParser {
                 break;
 
             case ILP_CHAR_DATA:
-                DCERR("State: ILP_CHAR_DATA: "<<buff[i]<<endl);
+                // DCERR("State: ILP_CHAR_DATA: "<<buff[i]<<endl);
                 ++cd_len;
                 ++i;
                 break;
@@ -121,7 +121,7 @@ struct InputLineParser {
     void
     on_char_data(const char *data, int len) {
         if (data && *data && len) {
-            DCERR("on_char_data("<<data<<", "<<len<<")\n");
+            // DCERR("on_char_data("<<data<<", "<<len<<")\n");
             this->pphrase->assign(data, len);
         }
     }
@@ -261,7 +261,7 @@ handle_import(enum mg_event event,
             if (!phrase.empty()) {
                 std::transform(phrase.begin(), phrase.end(), 
                                phrase.begin(), to_lowercase);
-                DCERR("Adding: "<<phrase<<", "<<weight<<endl);
+                // DCERR("Adding: "<<phrase<<", "<<weight<<endl);
                 pm.insert(phrase, weight);
             }
 
@@ -286,7 +286,7 @@ handle_import(enum mg_event event,
                     buff[tabpos] = '\0';
 
                     uint_t weight = atoi(buff);
-                    DCERR("Adding: "<<phrase<<", "<<weight<<endl);
+                    // DCERR("Adding: "<<phrase<<", "<<weight<<endl);
                     pm.insert(phrase, weight);
                 }
             }
