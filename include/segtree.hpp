@@ -89,6 +89,8 @@ public:
         pui_t lhs = this->_query_max(ni*2 + 1, b, m, qf, ql);
         pui_t rhs = this->_query_max(ni*2 + 2, m+1, e, qf, ql);
 
+        printf("lhs.second is ~0UL: %d, rhs.second is ~0UL: %d\n", lhs.second == ~0UL, rhs.second == ~0UL);
+
         if (lhs.second == ~0UL) {
             printf("[3] Returning: (%d, %d)\n", rhs.first, rhs.second);
             return rhs;
