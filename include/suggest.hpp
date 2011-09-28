@@ -72,6 +72,9 @@ suggest(PhraseMap &pm, SegmentTree &st, std::string prefix, uint_t n = 16) {
     while (ret.size() < n && !heap.empty()) {
         PhraseRange pr = heap.top();
         heap.pop();
+        cerr<<"Top phrase is at index: "<<pr.index<<endl;
+        cerr<<"And is: "<<pm.repr[pr.index].first<<endl;
+
         ret.push_back(pm.repr[pr.index]);
 
         uint_t lower = pr.first;
