@@ -11,19 +11,9 @@
 #include <assert.h>
 
 #include <include/utils.hpp>
+#include <include/types.hpp>
 
 using namespace std;
-
-typedef unsigned int uint_t;
-typedef pair<uint_t, uint_t> pui_t;
-typedef vector<uint_t> vui_t;
-typedef vector<pui_t> vpui_t;
-
-typedef std::pair<std::string, uint_t> psui_t;
-typedef std::vector<psui_t> vpsui_t;
-typedef std::vector<std::string> vs_t;
-typedef std::pair<vs_t::iterator, vs_t::iterator> pvsi_t;
-typedef std::pair<vpsui_t::iterator, vpsui_t::iterator> pvpsuii_t;
 
 
 struct PhraseRange {

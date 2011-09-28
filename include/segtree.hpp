@@ -9,12 +9,9 @@
 #include <stdio.h>
 #include <assert.h>
 
-using namespace std;
+#include <include/types.hpp>
 
-typedef unsigned int uint_t;
-typedef pair<uint_t, uint_t> pui_t;
-typedef vector<uint_t> vui_t;
-typedef vector<pui_t> vpui_t;
+using namespace std;
 
 
 uint_t log2(uint_t n) {
@@ -25,6 +22,8 @@ uint_t log2(uint_t n) {
     }
     return lg2;
 }
+
+const uint_t minus_one = (uint_t)0 - 1;
 
 class SegmentTree {
     vpui_t repr;
@@ -77,7 +76,7 @@ public:
         if (b > e || qf > e || ql < b) {
             printf("[1] Returning: (-1, -1)\n");
 
-            return pui_t(~0UL, ~0UL);
+            return pui_t(minus_one, minus_one);
         }
 
         if (b >= qf && e <= ql) {
@@ -89,13 +88,13 @@ public:
         pui_t lhs = this->_query_max(ni*2 + 1, b, m, qf, ql);
         pui_t rhs = this->_query_max(ni*2 + 2, m+1, e, qf, ql);
 
-        printf("lhs.second is ~0UL: %d, rhs.second is ~0UL: %d\n", lhs.second == ~0UL, rhs.second == ~0UL);
+        printf("lhs.second is minus_one: %d, rhs.second is minus_one: %d\n", lhs.second == minus_one, rhs.second == minus_one);
 
-        if (lhs.second == ~0UL) {
+        if (lhs.second == minus_one) {
             printf("[3] Returning: (%d, %d)\n", rhs.first, rhs.second);
             return rhs;
         }
-        else if (rhs.second == ~0UL) {
+        else if (rhs.second == minus_one) {
             printf("[4] Returning: (%d, %d)\n", lhs.first, lhs.second);
             return lhs;
         }

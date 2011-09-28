@@ -10,6 +10,7 @@
 #include <include/segtree.hpp>
 #include <include/phrase_map.hpp>
 #include <include/suggest.hpp>
+#include <include/types.hpp>
 
 // C++-headers
 #include <string>
