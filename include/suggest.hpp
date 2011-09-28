@@ -43,7 +43,7 @@ typedef std::priority_queue<PhraseRange> pqpr_t;
 vpsui_t
 suggest(PhraseMap &pm, SegmentTree &st, std::string prefix, uint_t n = 16) {
     pvpsuii_t phrases = pm.query(prefix);
-    cerr<<"Got "<<phrases.second - phrases.first<<" candidate phrases from PhraseMap"<<endl;
+    // cerr<<"Got "<<phrases.second - phrases.first<<" candidate phrases from PhraseMap"<<endl;
 
     uint_t first = phrases.first - pm.repr.begin();
     uint_t last = phrases.second - pm.repr.begin();
@@ -62,8 +62,8 @@ suggest(PhraseMap &pm, SegmentTree &st, std::string prefix, uint_t n = 16) {
     while (ret.size() < n && !heap.empty()) {
         PhraseRange pr = heap.top();
         heap.pop();
-        cerr<<"Top phrase is at index: "<<pr.index<<endl;
-        cerr<<"And is: "<<pm.repr[pr.index].first<<endl;
+        // cerr<<"Top phrase is at index: "<<pr.index<<endl;
+        // cerr<<"And is: "<<pm.repr[pr.index].first<<endl;
 
         ret.push_back(pm.repr[pr.index]);
 
