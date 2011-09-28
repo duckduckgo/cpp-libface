@@ -53,7 +53,7 @@ typedef std::priority_queue<PhraseRange> pqpr_t;
 vpsui_t
 suggest(PhraseMap &pm, SegmentTree &st, std::string prefix, uint_t n = 16) {
     pvpsuii_t phrases = pm.query(prefix);
-    cerr<<"Got "<<phrases.size()<<" candidate phrases from PhraseMap"<<endl;
+    cerr<<"Got "<<phrases.repr.size()<<" candidate phrases from PhraseMap"<<endl;
 
     uint_t first = phrases.first - pm.repr.begin();
     uint_t last = phrases.second - pm.repr.begin();
