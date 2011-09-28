@@ -73,9 +73,9 @@ public:
 
     pui_t
     _query_max(uint_t ni, uint_t b, uint_t e, uint_t qf, uint_t ql) {
-        // printf("_query_max(%u, %u, %u, %u, %u)\n", ni, b, e, qf, ql);
-        if (qf > e || ql < b) {
-            return pui_t(~0L, ~0L);
+        printf("_query_max(%u, %u, %u, %u, %u)\n", ni, b, e, qf, ql);
+        if (b > e || qf > e || ql < b) {
+            return pui_t(~0UL, ~0UL);
         }
 
         if (b >= qf && e <= ql) {
@@ -87,13 +87,17 @@ public:
         pui_t rhs = this->_query_max(ni*2 + 2, m+1, e, qf, ql);
 
         if (lhs.second == ~0UL) {
+            printf("Returning: (%d, %d)\n", rhs.first, rhs.second);
             return rhs;
         }
         else if (rhs.second == ~0UL) {
+            printf("Returning: (%d, %d)\n", lhs.first, lhs.second);
             return lhs;
         }
         else {
-            return lhs.first > rhs.first ? lhs : rhs;
+            pui_t &tmp = lhs.first > rhs.first ? lhs : rhs;
+            printf("Returning: (%d, %d)\n", tmp.first, tmp.second);
+            return tmp;
         }
 
     }
