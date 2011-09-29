@@ -329,12 +329,15 @@ handle_export(enum mg_event event,
     // Prevent modifications to 'pm' while we export
     building = true;
     ofstream fout(file.c_str());
+    const time_t start_time = time(NULL);
+
     for (size_t i = 0; i < pm.repr.size(); ++i) {
         fout<<pm.repr[i].weight<<'\t'<<pm.repr[i].phrase<<'\n';
     }
 
     building = false;
-    mg_printf(conn, "Successfully wrote %u records to output file '%s'\n", pm.repr.size(), file.c_str());
+    mg_printf(conn, "Successfully wrote %u records to output file '%s' in %d second(s)\n", 
+              pm.repr.size(), file.c_str(), time(NULL) - start_time);
     return (void*)"";
 }
 
