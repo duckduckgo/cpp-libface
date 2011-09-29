@@ -205,6 +205,8 @@ handle_import(enum mg_event event,
               struct mg_connection *conn,
               const struct mg_request_info *request_info) {
     std::string file = get_qs(request_info, "file");
+    int sorted = atoi(get_qs(request_info, "sorted").c_str());
+
 #if defined USE_CXX_IO
     std::ifstream fin(file.c_str());
 #else
@@ -295,7 +297,7 @@ handle_import(enum mg_event event,
         }
 
         fclose(fin);
-        pm.finalize();
+        pm.finalize(sorted);
         vui_t weights;
         for (size_t i = 0; i < pm.repr.size(); ++i) {
             weights.push_back(pm.repr[i].weight);

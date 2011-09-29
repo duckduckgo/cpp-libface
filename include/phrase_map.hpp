@@ -50,10 +50,11 @@ public:
     }
 
     void
-    finalize() {
-        std::sort(this->repr.begin(), this->repr.end());
+    finalize(int sorted = 0) {
+        if (!sorted) {
+            std::sort(this->repr.begin(), this->repr.end());
+        }
     }
-
 
     pvpi_t
     query(std::string const &prefix) {
