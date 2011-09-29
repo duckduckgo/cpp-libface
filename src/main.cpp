@@ -316,6 +316,29 @@ handle_import(enum mg_event event,
 }
 
 static void*
+handle_export(enum mg_event event,
+              struct mg_connection *conn,
+              const struct mg_request_info *request_info) {
+    std::string file = get_qs(request_info, "file");
+    if (building) {
+        print_HTTP_response(conn, 412, "Busy");
+        mg_printf(conn, "Busy\n");
+        return (void*)"";
+    }
+
+    // Prevent modifications to 'pm' while we export
+    building = true;
+    ofstream fout(file.c_str());
+    for (size_t i = 0; i < pm.repr.size(); ++i) {
+        fout<<pm.repr[i].weight<<'\t'<<pm.repr[i].phrase<<'\n';
+    }
+
+    building = false;
+    mg_printf(conn, "Successfully wrote %u records to output file '%s'\n", pm.repr.size(), file.c_str());
+    return (void*)"";
+}
+
+static void*
 handle_suggest(enum mg_event event,
                struct mg_connection *conn,
                const struct mg_request_info *request_info) {
@@ -389,6 +412,9 @@ callback(enum mg_event event,
         }
         else if (request_uri == "/face/import/") {
             return handle_import(event, conn, request_info);
+        }
+        else if (request_uri == "/face/export/") {
+            return handle_export(event, conn, request_info);
         }
         else if (request_uri == "/face/stats/") {
             return handle_stats(event, conn, request_info);
