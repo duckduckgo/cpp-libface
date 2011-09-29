@@ -5,6 +5,8 @@
 #include <utility>
 #include <ostream>
 
+#include <include/types.hpp>
+
 template <typename T>
 ostream&
 operator<<(ostream& out, vector<T> const& vec) {
@@ -18,6 +20,12 @@ template <typename T, typename U>
 ostream&
 operator<<(ostream& out, std::pair<T, U> const& p) {
     out<<"("<<p.first<<", "<<p.second<<")";
+    return out;
+}
+
+ostream&
+operator<<(ostream& out, phrase_t const& p) {
+    out<<"("<<p.phrase<<", "<<p.weight<<")";
     return out;
 }
 

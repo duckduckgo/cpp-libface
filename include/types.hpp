@@ -6,6 +6,39 @@
 #include <string>
 
 typedef unsigned int uint_t;
+
+struct phrase_t {
+    uint_t weight;
+    std::string phrase;
+
+    phrase_t(std::string const& _p, uint_t _w)
+        : weight(_w), phrase(_p) {
+    }
+
+    void
+    swap(phrase_t& rhs) {
+        std::swap(this->weight, rhs.weight);
+        this->phrase.swap(rhs.phrase);
+    }
+
+    bool
+    operator<(phrase_t const& rhs) const {
+        return this->phrase < rhs.phrase;
+    }
+};
+
+// Specialize std::swap for our type
+namespace std {
+    void
+    swap(phrase_t& lhs, phrase_t& rhs) {
+        lhs.swap(rhs);
+    }
+}
+
+typedef std::vector<phrase_t> vp_t;
+typedef vp_t::iterator vpi_t;
+typedef std::pair<vpi_t, vpi_t> pvpi_t;
+
 typedef std::pair<uint_t, uint_t> pui_t;
 typedef std::vector<uint_t> vui_t;
 typedef std::vector<pui_t> vpui_t;

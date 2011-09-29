@@ -40,19 +40,19 @@ typedef std::priority_queue<PhraseRange> pqpr_t;
 
 
 
-vpsui_t
+vp_t
 suggest(PhraseMap &pm, SegmentTree &st, std::string prefix, uint_t n = 16) {
-    pvpsuii_t phrases = pm.query(prefix);
+    pvpi_t phrases = pm.query(prefix);
     // cerr<<"Got "<<phrases.second - phrases.first<<" candidate phrases from PhraseMap"<<endl;
 
-    uint_t first = phrases.first - pm.repr.begin();
-    uint_t last = phrases.second - pm.repr.begin();
+    uint_t first = phrases.first  - pm.repr.begin();
+    uint_t last  = phrases.second - pm.repr.begin();
 
     if (first == last) {
-        return vpsui_t();
+        return vp_t();
     }
 
-    vpsui_t ret;
+    vp_t ret;
     --last;
 
     pqpr_t heap;
@@ -93,11 +93,11 @@ suggest(PhraseMap &pm, SegmentTree &st, std::string prefix, uint_t n = 16) {
     return ret;
 }
 
-vpsui_t
+vp_t
 naive_suggest(PhraseMap &pm, SegmentTree &st, std::string prefix, uint_t n = 16) {
-    pvpsuii_t phrases = pm.query(prefix);
+    pvpi_t phrases = pm.query(prefix);
     std::vector<uint_t> indexes;
-    vpsui_t ret;
+    vp_t ret;
 
     while (phrases.first != phrases.second) {
         indexes.push_back(phrases.first - pm.repr.begin());
@@ -107,7 +107,7 @@ naive_suggest(PhraseMap &pm, SegmentTree &st, std::string prefix, uint_t n = 16)
     while (ret.size() < n && !indexes.empty()) {
         uint_t mi = 0;
         for (size_t i = 1; i < indexes.size(); ++i) {
-            if (pm.repr[indexes[i]].second > pm.repr[indexes[mi]].second) {
+            if (pm.repr[indexes[i]].weight > pm.repr[indexes[mi]].weight) {
                 mi = i;
             }
         }
@@ -137,7 +137,7 @@ namespace _suggest {
         SegmentTree st;
         vui_t weights;
         for (size_t i = 0; i < pm.repr.size(); ++i) {
-            weights.push_back(pm.repr[i].second);
+            weights.push_back(pm.repr[i].weight);
         }
 
         st.initialize(weights);

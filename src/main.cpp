@@ -178,23 +178,23 @@ uint_to_string(uint_t n) {
 }
 
 std::string
-to_json_string(vpsui_t const& suggestions) {
+to_json_string(vp_t const& suggestions) {
     std::string ret = "[";
     ret.reserve(512);
-    for (vpsui_t::const_iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
+    for (vp_t::const_iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
         std::string p;
-        p.reserve(i->first.size() + 10);
-        for (size_t j = 0; j < i->first.size(); ++j) {
-            if (i->first[j] == '"') {
+        p.reserve(i->phrase.size() + 10);
+        for (size_t j = 0; j < i->phrase.size(); ++j) {
+            if (i->phrase[j] == '"') {
                 p += "\\\"";
             }
             else {
-                p += i->first[j];
+                p += i->phrase[j];
             }
         }
 
         std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
-        ret += " { \"phrase\": \"" + p + "\", \"score\": " + uint_to_string(i->second) + "}" + trailer;
+        ret += " { \"phrase\": \"" + p + "\", \"score\": " + uint_to_string(i->weight) + "}" + trailer;
     }
     ret += "]";
     return ret;
@@ -298,7 +298,7 @@ handle_import(enum mg_event event,
         pm.finalize();
         vui_t weights;
         for (size_t i = 0; i < pm.repr.size(); ++i) {
-            weights.push_back(pm.repr[i].second);
+            weights.push_back(pm.repr[i].weight);
         }
         st.initialize(weights);
 
@@ -335,7 +335,7 @@ handle_suggest(enum mg_event event,
         n = NMAX;
     }
 
-    vpsui_t results = suggest(pm, st, q, n);
+    vp_t results = suggest(pm, st, q, n);
 
     /*
       for (size_t i = 0; i < results.size(); ++i) {
