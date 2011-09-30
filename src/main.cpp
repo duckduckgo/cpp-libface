@@ -65,7 +65,7 @@ struct InputLineParser {
     InputLineParser(const char *_buff, int *_pn, 
                     std::string *_pphrase, std::string *_psnippet)
         : state(ILP_BEFORE_NON_WS), buff(_buff), pn(_pn), 
-          pphrase(_pphrase), psnippet(_pphrase) {
+          pphrase(_pphrase), psnippet(_psnippet) {
     }
 
     void
@@ -77,7 +77,7 @@ struct InputLineParser {
 
         while (buff[i]) {
             char ch = buff[i];
-            // DCERR("State: "<<this->state<<", read: "<<ch<<"\n");
+            DCERR("State: "<<this->state<<", read: "<<ch<<"\n");
 
             switch (this->state) {
             case ILP_BEFORE_NON_WS:
@@ -132,6 +132,7 @@ struct InputLineParser {
             case ILP_AFTER_STAB:
                 if (!isspace(ch)) {
                     this->state = ILP_SNIPPET;
+                    s_start = this->buff + i;
                 }
                 else {
                     ++i;
@@ -374,7 +375,7 @@ handle_import(enum mg_event event,
 
             if (!phrase.empty()) {
                 str_lowercase(phrase);
-                // DCERR("Adding: "<<phrase<<", "<<weight<<endl);
+                DCERR("Adding: "<<weight<<", "<<phrase<<", "<<snippet<<endl);
                 pm.insert(weight, phrase, snippet);
             }
 
