@@ -121,16 +121,16 @@ namespace _suggest {
     int
     test() {
         PhraseMap pm;
-        pm.insert("duckduckgo", 1);
-        pm.insert("duckduckgeese", 2);
-        pm.insert("duckduckgoose", 1);
-        pm.insert("duckduckgoo", 9);
-        pm.insert("duckgo", 10);
-        pm.insert("dukgo", 3);
-        pm.insert("luckkuckgo", 2);
-        pm.insert("chuckchuckgo", 5);
-        pm.insert("dilli - no one killed jessica", 15);
-        pm.insert("aaitbaar - no one killed jessica", 11);
+        pm.insert(1, "duckduckgo", "");
+        pm.insert(2, "duckduckgeese", "");
+        pm.insert(1, "duckduckgoose", "");
+        pm.insert(9, "duckduckgoo", "");
+        pm.insert(10, "duckgo", "");
+        pm.insert(3, "dukgo", "");
+        pm.insert(2, "luckkuckgo", "");
+        pm.insert(5, "chuckchuckgo", "");
+        pm.insert(15, "dilli - no one killed jessica", "");
+        pm.insert(11, "aaitbaar - no one killed jessica", "");
 
         pm.finalize();
 

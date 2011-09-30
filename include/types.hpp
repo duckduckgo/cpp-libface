@@ -10,15 +10,17 @@ typedef unsigned int uint_t;
 struct phrase_t {
     uint_t weight;
     std::string phrase;
+    std::string snippet;
 
-    phrase_t(std::string const& _p, uint_t _w)
-        : weight(_w), phrase(_p) {
+    phrase_t(uint_t _w, std::string const& _p, std::string const& _s)
+        : weight(_w), phrase(_p), snippet(_s) {
     }
 
     void
     swap(phrase_t& rhs) {
         std::swap(this->weight, rhs.weight);
         this->phrase.swap(rhs.phrase);
+        this->snippet.swap(rhs.snippet);
     }
 
     bool

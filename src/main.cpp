@@ -27,6 +27,11 @@
 #define NMAX 32
 #endif
 
+
+// Max. line size is 8191 bytes.
+#define INPUT_LINE_SIZE 8192
+
+
 // Undefine the macro below to use C-style I/O routines.
 // #define USE_CXX_IO
 
@@ -38,28 +43,33 @@ unsigned long long nreq = 0;
 
 
 #define ILP_BEFORE_NON_WS  0
-#define ILP_NUMERIC        1
-#define ILP_BEFORE_TAB     2
-#define ILP_AFTER_TAB      3
-#define ILP_CHAR_DATA      4
+#define ILP_WEIGHT         1
+#define ILP_BEFORE_PTAB    2
+#define ILP_AFTER_PTAB     3
+#define ILP_PHRASE         4
+#define ILP_AFTER_STAB     5
+#define ILP_SNIPPET        6
+
 
 
 struct InputLineParser {
     int state;
     const char *buff;
     int *pn;
-    std::string *pphrase;
+    std::string *pphrase, *psnippet;
 
-    InputLineParser(const char *_buff, int *_pn, std::string *_pphrase)
-        : state(ILP_BEFORE_NON_WS), buff(_buff), pn(_pn), pphrase(_pphrase) {
+    InputLineParser(const char *_buff, int *_pn, 
+                    std::string *_pphrase, std::string *_psnippet)
+        : state(ILP_BEFORE_NON_WS), buff(_buff), pn(_pn), 
+          pphrase(_pphrase), psnippet(_pphrase) {
     }
 
     void
     start_parsing() {
         int i = 0;
         int n = 0;
-        const char *cd_start = NULL;
-        int cd_len = 0;
+        const char *p_start = NULL, *s_start = NULL;
+        int p_len = 0, s_len = 0;
 
         while (buff[i]) {
             char ch = buff[i];
@@ -68,62 +78,90 @@ struct InputLineParser {
             switch (this->state) {
             case ILP_BEFORE_NON_WS:
                 if (!isspace(ch)) {
-                    this->state = ILP_NUMERIC;
+                    this->state = ILP_WEIGHT;
                 }
                 else {
                     ++i;
                 }
                 break;
 
-            case ILP_NUMERIC:
+            case ILP_WEIGHT:
                 if (isdigit(ch)) {
                     n *= 10;
                     n += (ch - '0');
                     ++i;
                 }
                 else {
-                    this->state = ILP_BEFORE_TAB;
-                    on_numeric(n);
+                    this->state = ILP_BEFORE_PTAB;
+                    on_weight(n);
                 }
                 break;
 
-            case ILP_BEFORE_TAB:
+            case ILP_BEFORE_PTAB:
                 if (ch == '\t') {
-                    this->state = ILP_AFTER_TAB;
+                    this->state = ILP_AFTER_PTAB;
                 }
                 ++i;
                 break;
 
-            case ILP_AFTER_TAB:
+            case ILP_AFTER_PTAB:
                 if (isspace(ch)) {
                     ++i;
                 }
                 else {
-                    cd_start = this->buff + i;
-                    this->state = ILP_CHAR_DATA;
+                    p_start = this->buff + i;
+                    this->state = ILP_PHRASE;
                 }
                 break;
 
-            case ILP_CHAR_DATA:
-                // DCERR("State: ILP_CHAR_DATA: "<<buff[i]<<endl);
-                ++cd_len;
+            case ILP_PHRASE:
+                // DCERR("State: ILP_PHRASE: "<<buff[i]<<endl);
+                if (ch != '\t') {
+                    ++p_len;
+                }
+                else {
+                    this->state = ILP_AFTER_STAB;
+                }
                 ++i;
                 break;
+
+            case ILP_AFTER_STAB:
+                if (!isspace(ch)) {
+                    this->state = ILP_SNIPPET;
+                }
+                else {
+                    ++i;
+                }
+                break;
+
+            case ILP_SNIPPET:
+                ++i;
+                ++s_len;
+                break;
+
             };
         }
-        on_char_data(cd_start, cd_len);
+        on_phrase(p_start, p_len);
+        on_snippet(s_start, s_len);
     }
 
     void
-    on_numeric(int n) {
+    on_weight(int n) {
         *(this->pn) = n;
     }
 
     void
-    on_char_data(const char *data, int len) {
-        if (data && *data && len) {
-            // DCERR("on_char_data("<<data<<", "<<len<<")\n");
+    on_phrase(const char *data, int len) {
+        if (len && this->pphrase) {
+            // DCERR("on_phrase("<<data<<", "<<len<<")\n");
             this->pphrase->assign(data, len);
+        }
+    }
+
+    void
+    on_snippet(const char *data, int len) {
+        if (len && this->psnippet) {
+            this->psnippet->assign(data, len);
         }
     }
 
@@ -178,24 +216,32 @@ uint_to_string(uint_t n) {
     return ret;
 }
 
+void
+escape_quotes(std::string& str) {
+    std::string ret;
+    ret.reserve(str.size() + 10);
+    for (size_t j = 0; j < str.size(); ++j) {
+        if (str[j] == '"') {
+            ret += "\\\"";
+        }
+        else {
+            ret += str[j];
+        }
+    }
+    ret.swap(str);
+}
+
 std::string
-to_json_string(vp_t const& suggestions) {
+to_json_string(vp_t& suggestions) {
     std::string ret = "[";
     ret.reserve(512);
-    for (vp_t::const_iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
-        std::string p;
-        p.reserve(i->phrase.size() + 10);
-        for (size_t j = 0; j < i->phrase.size(); ++j) {
-            if (i->phrase[j] == '"') {
-                p += "\\\"";
-            }
-            else {
-                p += i->phrase[j];
-            }
-        }
+    for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
+        escape_quotes(i->phrase);
+        escape_quotes(i->snippet);
 
         std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
-        ret += " { \"phrase\": \"" + p + "\", \"score\": " + uint_to_string(i->weight) + "}" + trailer;
+        ret += " { \"phrase\": \"" + i->phrase + "\", \"score\": " + uint_to_string(i->weight) + 
+            (i->snippet.empty() ? "" : ", \"snippet\": \"" + i->snippet + "\"") + "}" + trailer;
     }
     ret += "]";
     return ret;
@@ -225,7 +271,7 @@ handle_import(enum mg_event event,
         int nlines = 0;
 
         pm.repr.clear();
-        char buff[4096];
+        char buff[INPUT_LINE_SIZE];
 
         while (
 #if defined USE_CXX_IO
@@ -236,16 +282,16 @@ handle_import(enum mg_event event,
                ) {
 
 #if defined USE_CXX_IO
-            fin.getline(buff, 4096);
+            fin.getline(buff, INPUT_LINE_SIZE);
 #else
-            char *got = fgets(buff, 4096, fin);
+            char *got = fgets(buff, INPUT_LINE_SIZE, fin);
 #endif
 
             ++nlines;
 
 #if defined USE_CXX_IO
             const int llen = fin.gcount();
-            buff[4095] = '\0';
+            buff[INPUT_LINE_SIZE - 1] = '\0';
 #else
             if (!got) {
                 break;
@@ -259,14 +305,14 @@ handle_import(enum mg_event event,
 
 #if 1
             int weight = 0;
-            std::string phrase;
-            InputLineParser(buff, &weight, &phrase).start_parsing();
+            std::string phrase, snippet;
+            InputLineParser(buff, &weight, &phrase, &snippet).start_parsing();
 
             if (!phrase.empty()) {
                 std::transform(phrase.begin(), phrase.end(), 
                                phrase.begin(), to_lowercase);
                 // DCERR("Adding: "<<phrase<<", "<<weight<<endl);
-                pm.insert(phrase, weight);
+                pm.insert(weight, phrase, snippet);
             }
 
 #else
