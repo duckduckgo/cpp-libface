@@ -10,5 +10,9 @@ debug:
 	$(CC) -c deps/mongoose/mongoose.c -I deps/mongoose $(CFLAGS) -g
 	$(CXX) -o lib-face src/main.cpp mongoose.o -I . -I deps/mongoose $(CXXFLAGS) $(LINFLAGS) -g
 
+test:
+	$(CXX) -o tests/containers tests/containers.cpp -I . $(CXXFLAGS)
+	tests/containers
+
 clean:
 	rm mongoose.o lib-face
