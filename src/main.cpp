@@ -31,6 +31,9 @@
 // Max. line size is 8191 bytes.
 #define INPUT_LINE_SIZE 8192
 
+// How many bytes to reserve for the output string
+#define OUTPUT_SIZE_RESERVE 4096
+
 
 // Undefine the macro below to use C-style I/O routines.
 // #define USE_CXX_IO
@@ -40,6 +43,7 @@ PhraseMap pm;
 SegmentTree st;
 bool building = false;
 unsigned long long nreq = 0;
+time_t started_at;
 
 
 #define ILP_BEFORE_NON_WS  0
@@ -200,9 +204,16 @@ to_lowercase(char c) {
     return std::tolower(c);
 }
 
+inline void
+str_lowercase(std::string &str) {
+    std::transform(str.begin(), str.end(), 
+                   str.begin(), to_lowercase);
 
-std::string
-uint_to_string(uint_t n) {
+}
+
+
+inline std::string
+uint_to_string(uint_t n, uint_t pad = 0) {
     std::string ret;
     if (!n) {
         ret = "0";
@@ -213,6 +224,10 @@ uint_to_string(uint_t n) {
             n /= 10;
         }
     }
+    while (pad && ret.size() < pad) {
+        ret = "0" + ret;
+    }
+
     return ret;
 }
 
@@ -234,7 +249,7 @@ escape_quotes(std::string& str) {
 std::string
 to_json_string(vp_t& suggestions) {
     std::string ret = "[";
-    ret.reserve(512);
+    ret.reserve(OUTPUT_SIZE_RESERVE);
     for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
         escape_quotes(i->phrase);
         escape_quotes(i->snippet);
@@ -245,6 +260,55 @@ to_json_string(vp_t& suggestions) {
     }
     ret += "]";
     return ret;
+}
+
+std::string
+pluralize(std::string s, int n) {
+    return n>1 ? s+"s" : s;
+}
+
+std::string
+humanized_time_difference(time_t prev, time_t curr) {
+    std::string ret = "";
+    if (prev > curr) {
+        std::swap(prev, curr);
+    }
+
+    if (prev == curr) {
+        return "just now";
+    }
+
+    int sec = curr - prev;
+    ret = uint_to_string(sec % 60, 2) + ret;
+
+    int minute = sec / 60;
+    ret = uint_to_string(minute % 60, 2) + ":" + ret;
+
+    int hour = minute / 60;
+    ret = uint_to_string(hour % 24, 2) + ":" + ret;
+
+    int day = hour / 24;
+    if (day) {
+        ret = uint_to_string(day % 7) + pluralize(" day", day%7) + " " + ret;
+    }
+
+    int week = day / 7;
+    if (week) {
+        ret = uint_to_string(week % 4) + pluralize(" day", week%4) + " " + ret;
+    }
+
+    int month = week / 4;
+    if (month) {
+        ret = uint_to_string(month) + pluralize(" month", month) + " " + ret;
+    }
+
+    return ret;
+}
+
+
+std::string
+get_uptime() {
+    return humanized_time_difference(started_at, time(NULL));
 }
 
 static void*
@@ -309,8 +373,7 @@ handle_import(enum mg_event event,
             InputLineParser(buff, &weight, &phrase, &snippet).start_parsing();
 
             if (!phrase.empty()) {
-                std::transform(phrase.begin(), phrase.end(), 
-                               phrase.begin(), to_lowercase);
+                str_lowercase(phrase);
                 // DCERR("Adding: "<<phrase<<", "<<weight<<endl);
                 pm.insert(weight, phrase, snippet);
             }
@@ -410,6 +473,7 @@ handle_suggest(enum mg_event event,
         n = NMAX;
     }
 
+    str_lowercase(q);
     vp_t results = suggest(pm, st, q, n);
 
     /*
@@ -428,8 +492,10 @@ handle_stats(enum mg_event event,
              const struct mg_request_info *request_info) {
     print_HTTP_response(conn, 200, "OK");
     mg_printf(conn, "Answered %d queries\n", nreq);
+    mg_printf(conn, "Uptime: %s\n", get_uptime().c_str());
+
     if (building) {
-        mg_printf(conn, "Currently building data store\n");
+        mg_printf(conn, "Data Store is busy\n");
     }
     else {
         mg_printf(conn, "Data store size: %d entries\n", pm.repr.size());
@@ -480,6 +546,8 @@ callback(enum mg_event event,
 int main(void) {
   struct mg_context *ctx;
   const char *options[] = {"listening_ports", "6767", NULL};
+
+  started_at = time(NULL);
 
   ctx = mg_start(&callback, NULL, options);
   while (1) {
