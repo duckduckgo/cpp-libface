@@ -194,7 +194,7 @@ get_qs(const struct mg_request_info *request_info, std::string const& key) {
 void
 print_HTTP_response(struct mg_connection *conn, 
                     int code, const char *description, 
-                    const char *content_type = "text/plain") {
+                    const char *content_type = "text/plain; charset=UTF-8") {
     mg_printf(conn, "HTTP/1.1 %d %s\r\n"
               "Cache-Control: no-cache\r\n"
               "Content-Type: %s\r\n\r\n", code, description, content_type);
