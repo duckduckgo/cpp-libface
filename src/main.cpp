@@ -312,6 +312,20 @@ get_uptime() {
     return humanized_time_difference(started_at, time(NULL));
 }
 
+bool
+is_valid_cb(std::string const& cb) {
+    if (cb.empty() || !(isalpha(cb[0]) || cb[0] == '_')) {
+        return false;
+    }
+
+    for (size_t i = 1; i < cb.size(); ++i) {
+        if (!(isalnum(cb[i]) || cb[0] == '_')) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static void*
 handle_import(enum mg_event event,
               struct mg_connection *conn,
@@ -462,17 +476,24 @@ handle_suggest(enum mg_event event,
         return (void*)"";
     }
 
-    print_HTTP_response(conn, 200, "OK");
-
     std::string q  = get_qs(request_info, "q");
     std::string sn = get_qs(request_info, "n");
+    std::string cb = get_qs(request_info, "callback");
 
-    DCERR("handle_suggest::q:"<<q<<", sn:"<<sn<<endl);
+    DCERR("handle_suggest::q:"<<q<<", sn:"<<sn<<", callback: "<<cb<<endl);
 
     unsigned int n = sn.empty() ? NMAX : atoi(sn.c_str());
     if (n > NMAX) {
         n = NMAX;
     }
+
+    const bool has_cb = !cb.empty();
+    if (has_cb && !is_valid_cb(cb)) {
+        print_HTTP_response(conn, 400, "Invalid Request");
+        return (void*)"";
+    }
+
+    print_HTTP_response(conn, 200, "OK");
 
     str_lowercase(q);
     vp_t results = suggest(pm, st, q, n);
@@ -482,7 +503,12 @@ handle_suggest(enum mg_event event,
       mg_printf(conn, "%s:%d\n", results[i].first.c_str(), results[i].second);
       }
     */
-    mg_printf(conn, "%s\n", to_json_string(results).c_str());
+    if (has_cb) {
+        mg_printf(conn, "%s(%s);\n", cb.c_str(), to_json_string(results).c_str());
+    }
+    else {
+        mg_printf(conn, "%s\n", to_json_string(results).c_str());
+    }
 
     return (void*)"";
 }
