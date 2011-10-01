@@ -15,4 +15,4 @@ test:
 	tests/containers
 
 clean:
-	rm mongoose.o lib-face
+	rm mongoose.o lib-face tests/containers
