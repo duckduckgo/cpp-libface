@@ -10,20 +10,10 @@
 #include <assert.h>
 
 #include <include/types.hpp>
+#include <include/utils.hpp>
 
 using namespace std;
 
-
-uint_t log2(uint_t n) {
-    uint_t lg2 = 1;
-    while (n > 1) {
-        n /= 2;
-        ++lg2;
-    }
-    return lg2;
-}
-
-const uint_t minus_one = (uint_t)0 - 1;
 
 class SegmentTree {
     vpui_t repr;
@@ -115,22 +105,24 @@ public:
 };
 
 
-pui_t
-naive_query_max(vui_t const& v, int i, int j) {
-    uint_t mv = v[i];
-    uint_t mi = i;
-    while (i <= j) {
-        if (v[i] > mv) {
-            mv = v[i];
-            mi = i;
-        }
-        ++i;
-    }
-    return pui_t(mv, mi);
-}
 
 
 namespace segtree {
+
+    pui_t
+    naive_query_max(vui_t const& v, int i, int j) {
+        uint_t mv = v[i];
+        uint_t mi = i;
+        while (i <= j) {
+            if (v[i] > mv) {
+                mv = v[i];
+                mi = i;
+            }
+            ++i;
+        }
+        return pui_t(mv, mi);
+    }
+
     int
     test() {
         vui_t v;
