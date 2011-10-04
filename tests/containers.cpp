@@ -1,8 +1,3 @@
-#if !defined RMQ
-// #define RMQ SegmentTree
-#define RMQ SparseTable
-#endif
-
 #include <include/sparsetable.hpp>
 #include <include/segtree.hpp>
 #include <include/phrase_map.hpp>

@@ -5,6 +5,11 @@
 #include <vector>
 #include <string>
 
+#if !defined RMQ
+#define RMQ SegmentTree
+// #define RMQ SparseTable
+#endif
+
 typedef unsigned int uint_t;
 
 struct phrase_t {

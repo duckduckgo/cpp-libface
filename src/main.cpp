@@ -5,12 +5,6 @@
 #include <unistd.h>
 #include <time.h>
 
-#if !defined RMQ
-// #define RMQ SegmentTree
-#define RMQ SparseTable
-#endif
-
-
 // Custom-includes
 #include "mongoose.h"
 #include <include/segtree.hpp>
