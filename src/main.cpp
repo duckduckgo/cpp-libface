@@ -40,8 +40,12 @@
 // #define USE_CXX_IO
 
 
-#define RMQ SparseTable
+#if !defined RMQ
 // #define RMQ SegmentTree
+#define RMQ SparseTable
+#endif
+
+
 
 
 PhraseMap pm;
