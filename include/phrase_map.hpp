@@ -18,20 +18,30 @@ using namespace std;
 struct PrefixFinder {
     bool
     operator()(std::string const& prefix, phrase_t const &target) {
-        int ppos = target.phrase.find(prefix);
+#if 1
+        const int ppos = target.phrase.compare(0, prefix.size(), prefix);
+        return ppos > 0;
+#else
+        const int ppos = target.phrase.find(prefix);
         if (!ppos) {
             return false;
         }
         return prefix < target.phrase;
+#endif
     }
 
     bool
     operator()(phrase_t const& target, std::string const &prefix) {
-        int ppos = target.phrase.find(prefix);
+#if 1
+        const int ppos = target.phrase.compare(0, prefix.size(), prefix);
+        return ppos < 0;
+#else
+        const int ppos = target.phrase.find(prefix);
         if (!ppos) {
             return false;
         }
         return target.phrase < prefix;
+#endif
     }
 };
 
