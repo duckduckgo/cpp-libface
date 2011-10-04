@@ -41,7 +41,7 @@ typedef std::priority_queue<PhraseRange> pqpr_t;
 
 
 vp_t
-suggest(PhraseMap &pm, SegmentTree &st, std::string prefix, uint_t n = 16) {
+suggest(PhraseMap &pm, RMQ &st, std::string prefix, uint_t n = 16) {
     pvpi_t phrases = pm.query(prefix);
     // cerr<<"Got "<<phrases.second - phrases.first<<" candidate phrases from PhraseMap"<<endl;
 
@@ -94,7 +94,7 @@ suggest(PhraseMap &pm, SegmentTree &st, std::string prefix, uint_t n = 16) {
 }
 
 vp_t
-naive_suggest(PhraseMap &pm, SegmentTree &st, std::string prefix, uint_t n = 16) {
+naive_suggest(PhraseMap& pm, RMQ& st, std::string prefix, uint_t n = 16) {
     pvpi_t phrases = pm.query(prefix);
     std::vector<uint_t> indexes;
     vp_t ret;
@@ -134,7 +134,7 @@ namespace _suggest {
 
         pm.finalize();
 
-        SegmentTree st;
+        RMQ st;
         vui_t weights;
         for (size_t i = 0; i < pm.repr.size(); ++i) {
             weights.push_back(pm.repr[i].weight);

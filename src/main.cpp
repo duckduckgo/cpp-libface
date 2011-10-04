@@ -5,6 +5,12 @@
 #include <unistd.h>
 #include <time.h>
 
+#if !defined RMQ
+// #define RMQ SegmentTree
+#define RMQ SparseTable
+#endif
+
+
 // Custom-includes
 #include "mongoose.h"
 #include <include/segtree.hpp>
@@ -35,16 +41,11 @@
 // Undefine the macro below to use C-style I/O routines.
 // #define USE_CXX_IO
 
-#if !defined RMQ
-// #define RMQ SegmentTree
-#define RMQ SparseTable
-#endif
-
 
 
 
 PhraseMap pm;
-SegmentTree st;
+RMQ st;
 bool building = false;
 unsigned long long nreq = 0;
 time_t started_at;
