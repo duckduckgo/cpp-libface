@@ -7,6 +7,13 @@
 
 #include <include/types.hpp>
 
+#if defined NDEBUG
+#define DCERR(X)
+#else
+#define DCERR(X) cerr<<X;
+#endif
+
+
 uint_t log2(uint_t n) {
     uint_t lg2 = 0;
     while (n > 1) {

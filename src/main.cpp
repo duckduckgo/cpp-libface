@@ -12,33 +12,28 @@
 #include <include/phrase_map.hpp>
 #include <include/suggest.hpp>
 #include <include/types.hpp>
+#include <include/utils.hpp>
 
 // C++-headers
 #include <string>
 #include <fstream>
 #include <algorithm>
 
-#if defined NDEBUG
-#define DCERR(X)
-#else
-#define DCERR(X) cerr<<X;
-#endif
-
 #if !defined NMAX
 #define NMAX 32
 #endif
 
 
+#if !defined INPUT_LINE_SIZE
 // Max. line size is 8191 bytes.
 #define INPUT_LINE_SIZE 8192
+#endif
 
 // How many bytes to reserve for the output string
 #define OUTPUT_SIZE_RESERVE 4096
 
-
 // Undefine the macro below to use C-style I/O routines.
 // #define USE_CXX_IO
-
 
 #if !defined RMQ
 // #define RMQ SegmentTree
@@ -341,6 +336,10 @@ handle_import(enum mg_event event,
               const struct mg_request_info *request_info) {
     std::string file = get_qs(request_info, "file");
     int sorted = atoi(get_qs(request_info, "sorted").c_str());
+    uint_t limit  = atoi(get_qs(request_info, "limit").c_str());
+    if (!limit) {
+        limit = minus_one;
+    }
 
 #if defined USE_CXX_IO
     std::ifstream fin(file.c_str());
@@ -367,7 +366,7 @@ handle_import(enum mg_event event,
 #else
             !feof(fin)
 #endif
-               ) {
+               && limit--) {
 
 #if defined USE_CXX_IO
             fin.getline(buff, INPUT_LINE_SIZE);
@@ -440,7 +439,7 @@ handle_import(enum mg_event event,
 
         print_HTTP_response(conn, 200, "OK");
         mg_printf(conn, "Successfully added %d/%d records from \"%s\" in %d second(s)\n", 
-                  weights.size(), nlines-1, file.c_str(), time(NULL) - start_time);
+                  weights.size(), nlines, file.c_str(), time(NULL) - start_time);
 
         building = false;
     }
