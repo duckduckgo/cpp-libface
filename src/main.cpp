@@ -277,9 +277,10 @@ suggestions_json_array(vp_t& suggestions) {
 }
 
 std::string
-results_json(vp_t& suggestions, std::string const& type) {
+results_json(std::string q, vp_t& suggestions, std::string const& type) {
     if (type == "list") {
-        return suggestions_json_array(suggestions);
+        escape_quotes(q);
+        return "[ \"" + q + "\", " + suggestions_json_array(suggestions) + " ]";
     }
     else {
         return rich_suggestions_json_array(suggestions);
@@ -532,10 +533,10 @@ handle_suggest(enum mg_event event,
       }
     */
     if (has_cb) {
-        mg_printf(conn, "%s(%s);\n", cb.c_str(), results_json(results, type).c_str());
+        mg_printf(conn, "%s(%s);\n", cb.c_str(), results_json(q, results, type).c_str());
     }
     else {
-        mg_printf(conn, "%s\n", results_json(results, type).c_str());
+        mg_printf(conn, "%s\n", results_json(q, results, type).c_str());
     }
 
     return (void*)"";
