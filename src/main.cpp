@@ -247,7 +247,7 @@ escape_quotes(std::string& str) {
 }
 
 std::string
-to_json_string(vp_t& suggestions) {
+rich_suggestions_json_array(vp_t& suggestions) {
     std::string ret = "[";
     ret.reserve(OUTPUT_SIZE_RESERVE);
     for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
@@ -260,6 +260,30 @@ to_json_string(vp_t& suggestions) {
     }
     ret += "]";
     return ret;
+}
+
+std::string
+suggestions_json_array(vp_t& suggestions) {
+    std::string ret = "[";
+    ret.reserve(OUTPUT_SIZE_RESERVE);
+    for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
+        escape_quotes(i->phrase);
+
+        std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
+        ret += "\"" + i->phrase + "\"" + trailer;
+    }
+    ret += "]";
+    return ret;
+}
+
+std::string
+results_json(vp_t& suggestions, std::string const& type) {
+    if (type == "list") {
+        return suggestions_json_array(suggestions);
+    }
+    else {
+        return rich_suggestions_json_array(suggestions);
+    }
 }
 
 std::string
@@ -479,9 +503,10 @@ handle_suggest(enum mg_event event,
         return (void*)"";
     }
 
-    std::string q  = get_qs(request_info, "q");
-    std::string sn = get_qs(request_info, "n");
-    std::string cb = get_qs(request_info, "callback");
+    std::string q    = get_qs(request_info, "q");
+    std::string sn   = get_qs(request_info, "n");
+    std::string cb   = get_qs(request_info, "callback");
+    std::string type = get_qs(request_info, "type");
 
     DCERR("handle_suggest::q:"<<q<<", sn:"<<sn<<", callback: "<<cb<<endl);
 
@@ -507,10 +532,10 @@ handle_suggest(enum mg_event event,
       }
     */
     if (has_cb) {
-        mg_printf(conn, "%s(%s);\n", cb.c_str(), to_json_string(results).c_str());
+        mg_printf(conn, "%s(%s);\n", cb.c_str(), results_json(results, type).c_str());
     }
     else {
-        mg_printf(conn, "%s\n", to_json_string(results).c_str());
+        mg_printf(conn, "%s\n", results_json(results, type).c_str());
     }
 
     return (void*)"";
