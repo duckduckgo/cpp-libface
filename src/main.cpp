@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <getopt.h>
+#include <libgen.h>
 
 // Custom-includes
 #include "mongoose.h"
@@ -45,6 +46,7 @@ bool building = false;
 unsigned long long nreq = 0;
 time_t started_at;
 bool ac_sorted = false;
+bool opt_show_help = false;
 const char *ac_file = NULL;
 const char *port = "6767";
 
@@ -628,6 +630,20 @@ callback(enum mg_event event,
     }
 }
 
+
+void
+show_usage(char *argv[]) {
+    printf("Usage: %s [OPTION]...\n", basename(argv[0]));
+    printf("Start lib-face.\n\n");
+    printf("Optional arguments:\n\n");
+    printf("-h, --help           This screen\n");
+    printf("-f, --file=PATH      Path of the file containing the phrases\n");
+    printf("-p, --port=PORT      TCP port on which to start lib-face (default: 6767)\n");
+    printf("-s, --sorted         If specified, the input file (PATH) is assumed to be sorted by phrase\n");
+    printf("\n");
+    printf("Please visit https://code.google.com/p/lib-face/ for more information.\n");
+}
+
 void
 parse_options(int argc, char *argv[]) {
     int c;
@@ -638,10 +654,11 @@ parse_options(int argc, char *argv[]) {
             {"file", 1, 0, 'f'},
             {"port", 1, 0, 'p'},
             {"sorted", 0, 0, 's'},
+            {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "f:p:s",
+        c = getopt_long(argc, argv, "f:p:sh",
                         long_options, &option_index);
 
         if (c == -1)
@@ -663,6 +680,10 @@ parse_options(int argc, char *argv[]) {
             DCERR("File is Sorted\n");
             ac_sorted = true;
             break;
+          
+        case 'h':
+            opt_show_help = true;
+            break;
 
         case '?':
             cerr<<"ERROR::Invalid option: "<<optopt<<endl;
@@ -677,6 +698,11 @@ parse_options(int argc, char *argv[]) {
 int
 main(int argc, char* argv[]) {
     parse_options(argc, argv);
+    if (opt_show_help) {
+        show_usage(argv);
+        return 0;
+    }
+
     struct mg_context *ctx;
     const char *options[] = {"listening_ports", port, NULL};
 
