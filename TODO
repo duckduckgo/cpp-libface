@@ -1,1 +1,2 @@
 1. Approximate query matching (potentially use soundex and/or expose another search URL)
+2. Add --help or -h to options
