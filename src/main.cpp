@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <getopt.h>
 
 // Custom-includes
 #include "mongoose.h"
@@ -43,7 +44,9 @@ RMQ st;
 bool building = false;
 unsigned long long nreq = 0;
 time_t started_at;
-
+bool ac_sorted = false;
+const char *ac_file = NULL;
+const char *port = "6767";
 
 #define ILP_BEFORE_NON_WS  0
 #define ILP_WEIGHT         1
@@ -53,6 +56,8 @@ time_t started_at;
 #define ILP_AFTER_STAB     5
 #define ILP_SNIPPET        6
 
+
+#define IMPORT_FILE_NOT_FOUND 1
 
 
 struct InputLineParser {
@@ -350,17 +355,9 @@ is_valid_cb(std::string const& cb) {
     return true;
 }
 
-static void*
-handle_import(enum mg_event event,
-              struct mg_connection *conn,
-              const struct mg_request_info *request_info) {
-    std::string file = get_qs(request_info, "file");
-    int sorted = atoi(get_qs(request_info, "sorted").c_str());
-    uint_t limit  = atoi(get_qs(request_info, "limit").c_str());
-    if (!limit) {
-        limit = minus_one;
-    }
-
+int
+do_import(std::string file, int sorted, uint_t limit, 
+          int &rnadded, int &rnlines) {
 #if defined USE_CXX_IO
     std::ifstream fin(file.c_str());
 #else
@@ -370,11 +367,10 @@ handle_import(enum mg_event event,
     DCERR("handle_import::file:"<<file<<endl);
 
     if (!fin) {
-        print_HTTP_response(conn, 404, "Not Found");
+        return -IMPORT_FILE_NOT_FOUND;
     }
     else {
         building = true;
-        const time_t start_time = time(NULL);
         int nlines = 0;
 
         pm.repr.clear();
@@ -457,11 +453,44 @@ handle_import(enum mg_event event,
         }
         st.initialize(weights);
 
-        print_HTTP_response(conn, 200, "OK");
-        mg_printf(conn, "Successfully added %d/%d records from \"%s\" in %d second(s)\n", 
-                  weights.size(), nlines, file.c_str(), time(NULL) - start_time);
+        rnadded = weights.size();
+        rnlines = nlines;
 
         building = false;
+    }
+
+    return 0;
+}
+
+static void*
+handle_import(enum mg_event event,
+              struct mg_connection *conn,
+              const struct mg_request_info *request_info) {
+    std::string file = get_qs(request_info, "file");
+    int sorted = atoi(get_qs(request_info, "sorted").c_str());
+    uint_t limit  = atoi(get_qs(request_info, "limit").c_str());
+    int nadded, nlines;
+    const time_t start_time = time(NULL);
+
+    if (!limit) {
+        limit = minus_one;
+    }
+
+    int ret = do_import(file, sorted, limit, nadded, nlines);
+    if (ret < 0) {
+        switch (-ret) {
+        case IMPORT_FILE_NOT_FOUND:
+            print_HTTP_response(conn, 404, "Not Found");
+            break;
+
+        default:
+            cerr<<"ERROR::Unknown error: "<<ret<<endl;
+        }
+    }
+    else {
+        print_HTTP_response(conn, 200, "OK");
+        mg_printf(conn, "Successfully added %d/%d records from \"%s\" in %d second(s)\n", 
+                  nadded, nlines, file.c_str(), time(NULL) - start_time);
     }
 
     return (void*)"";
@@ -596,21 +625,89 @@ callback(enum mg_event event,
     }
     else {
         return NULL;
-  }
+    }
 }
 
-int main(void) {
-  struct mg_context *ctx;
-  const char *options[] = {"listening_ports", "6767", NULL};
+void
+parse_options(int argc, char *argv[]) {
+    int c;
 
-  started_at = time(NULL);
+    while (1) {
+        int option_index = 0;
+        static struct option long_options[] = {
+            {"file", 1, 0, 'f'},
+            {"port", 1, 0, 'p'},
+            {"sorted", 0, 0, 's'},
+            {0, 0, 0, 0}
+        };
 
-  ctx = mg_start(&callback, NULL, options);
-  while (1) {
-    // Never stop
-    sleep(100);
-  }
-  mg_stop(ctx);
+        c = getopt_long(argc, argv, "f:p:s",
+                        long_options, &option_index);
 
-  return 0;
+        if (c == -1)
+            break;
+
+        switch (c) {
+        case 0:
+        case 'f':
+            DCERR("File: "<<optarg<<endl);
+            ac_file = optarg;
+            break;
+
+        case 'p':
+            DCERR("Port: "<<optarg<<" ("<<atoi(optarg)<<")\n");
+            port = optarg;
+            break;
+
+        case 's':
+            DCERR("File is Sorted\n");
+            ac_sorted = true;
+            break;
+
+        case '?':
+            cerr<<"ERROR::Invalid option: "<<optopt<<endl;
+            break;
+        }
+    }
+
+
+}
+
+
+int
+main(int argc, char* argv[]) {
+    parse_options(argc, argv);
+    struct mg_context *ctx;
+    const char *options[] = {"listening_ports", port, NULL};
+
+    started_at = time(NULL);
+
+    cerr<<"INFO::Starting lib-face on port '"<<port<<"'\n";
+
+    if (ac_file) {
+        int nadded, nlines;
+        const time_t start_time = time(NULL);
+        int ret = do_import(ac_file, ac_sorted, minus_one, nadded, nlines);
+        if (ret < 0) {
+            fprintf(stderr, "ERROR::Could not add lines in file '%s'\n", ac_file);
+        }
+        else {
+            fprintf(stderr, "INFO::Successfully added %d/%d records from \"%s\" in %d second(s)\n", 
+                    nadded, nlines, ac_file, (int)(time(NULL) - start_time));
+        }
+    }
+
+    ctx = mg_start(&callback, NULL, options);
+    if (!ctx) {
+        fprintf(stderr, "ERROR::Could not start the web server\n");
+        return 1;
+    }
+
+    while (1) {
+        // Never stop
+        sleep(100);
+    }
+    mg_stop(ctx);
+
+    return 0;
 }

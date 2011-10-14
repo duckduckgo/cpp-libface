@@ -1,4 +1,1 @@
-1. Allow user to load dictionary via a command line parameter at startup
-2. Detect already running service on same port and show appropriate error
-3. Allow specifying the port number on the command line
-4. Approximate query matching (potentially use soundex and/or expose another search URL)
+1. Approximate query matching (potentially use soundex and/or expose another search URL)
