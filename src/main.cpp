@@ -201,7 +201,7 @@ void
 print_HTTP_response(struct mg_connection *conn, 
                     int code, const char *description, 
                     const char *content_type = "text/plain; charset=UTF-8") {
-    mg_printf(conn, "HTTP/1.1 %d %s\r\n"
+    mg_printf(conn, "HTTP/1.0 %d %s\r\n"
               "Cache-Control: no-cache\r\n"
               "Content-Type: %s\r\n\r\n", code, description, content_type);
 }
