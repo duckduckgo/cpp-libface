@@ -1,41 +1,38 @@
 #include <string>
 #include <iostream>
 #include <assert.h>
+#include <utility>
 
 int
 edit_distance(std::string const& lhs, std::string const& rhs) {
     const int n = lhs.size();
     const int m = rhs.size();
-    int *dp[2] = { (int*)malloc((m+1)*sizeof(int)), (int*)malloc((m+1)*sizeof(int)) };
-    dp[0] = dp[0] + 1;
-    dp[1] = dp[1] + 1;
-    dp[0][-1] = 0;
+    int *mem = (int*)malloc((m + m + 2) * sizeof(int));
+    int *dp0 = mem+1, *dp1 = mem+m+2;
+    dp0[-1] = 0;
     for (int i = 0; i < m; ++i) {
-        dp[0][i] = i + 1;
+        dp0[i] = i + 1;
     }
 
     for (int i = 0; i < n; ++i) {
-        dp[1][-1] = i+1;
+        dp1[-1] = i+1;
         for (int j = 0; j < m; ++j) {
             if (lhs[i] == rhs[j]) {
-                dp[1][j] = dp[0][j-1];
+                dp1[j] = dp0[j-1];
             }
             else {
-                int m1 = dp[0][j] + 1;
-                int m2 = dp[1][j-1] + 1;
-                int m3 = dp[0][j-1] + 1;
+                int m1 = dp0[j] + 1;
+                int m2 = dp1[j-1] + 1;
+                int m3 = dp0[j-1] + 1;
                 m1 = m1 < m2 ? m1 : m2;
                 m1 = m1 < m3 ? m1 : m3;
-                dp[1][j] = m1;
+                dp1[j] = m1;
             }
         }
-        int *tmp = dp[0];
-        dp[0] = dp[1];
-        dp[1] = tmp;
+        std::swap(dp0, dp1);
     }
-    int ret = dp[0][m-1];
-    free(dp[0] - 1);
-    free(dp[1] - 1);
+    int ret = dp0[m-1];
+    free(mem);
     return ret;
 }
 
