@@ -350,7 +350,7 @@ is_valid_cb(std::string const& cb) {
     }
 
     for (size_t i = 1; i < cb.size(); ++i) {
-        if (!(isalnum(cb[i]) || cb[i] == '_')) {
+        if (!(isalnum(cb[i]) || cb[i] == '_' || cb[i] == '.')) {
             return false;
         }
     }
