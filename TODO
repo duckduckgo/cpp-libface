@@ -1,2 +1,1 @@
 1. Approximate query matching (potentially use soundex and/or expose another search URL)
-2. FIX JSON encoding bug. i.e. Escape \ and \n
