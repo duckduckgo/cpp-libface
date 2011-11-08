@@ -239,14 +239,24 @@ uint_to_string(uint_t n, uint_t pad = 0) {
 }
 
 void
-escape_quotes(std::string& str) {
+escape_special_chars(std::string& str) {
     std::string ret;
     ret.reserve(str.size() + 10);
     for (size_t j = 0; j < str.size(); ++j) {
-        if (str[j] == '"') {
+        switch (str[j]) {
+        case '"':
             ret += "\\\"";
-        }
-        else {
+            break;
+
+        case '\\':
+            ret += "\\\\";
+            break;
+
+        case '\n':
+            ret += "\\n";
+            break;
+
+        default:
             ret += str[j];
         }
     }
@@ -258,8 +268,8 @@ rich_suggestions_json_array(vp_t& suggestions) {
     std::string ret = "[";
     ret.reserve(OUTPUT_SIZE_RESERVE);
     for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
-        escape_quotes(i->phrase);
-        escape_quotes(i->snippet);
+        escape_special_chars(i->phrase);
+        escape_special_chars(i->snippet);
 
         std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
         ret += " { \"phrase\": \"" + i->phrase + "\", \"score\": " + uint_to_string(i->weight) + 
@@ -274,7 +284,7 @@ suggestions_json_array(vp_t& suggestions) {
     std::string ret = "[";
     ret.reserve(OUTPUT_SIZE_RESERVE);
     for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
-        escape_quotes(i->phrase);
+        escape_special_chars(i->phrase);
 
         std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
         ret += "\"" + i->phrase + "\"" + trailer;
@@ -286,7 +296,7 @@ suggestions_json_array(vp_t& suggestions) {
 std::string
 results_json(std::string q, vp_t& suggestions, std::string const& type) {
     if (type == "list") {
-        escape_quotes(q);
+        escape_special_chars(q);
         return "[ \"" + q + "\", " + suggestions_json_array(suggestions) + " ]";
     }
     else {
