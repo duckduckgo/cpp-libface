@@ -355,15 +355,7 @@ get_uptime() {
 
 bool
 is_valid_cb(std::string const& cb) {
-    if (cb.empty() || !(isalpha(cb[0]) || cb[0] == '_')) {
-        return false;
-    }
-
-    for (size_t i = 1; i < cb.size(); ++i) {
-        if (!(isalnum(cb[i]) || cb[i] == '_' || cb[i] == '.')) {
-            return false;
-        }
-    }
+    // We don't check since this could be any valid javascript expression
     return true;
 }
 
