@@ -50,7 +50,7 @@ public:
     vp_t repr;
 
 public:
-    PhraseMap(uint_t _len = 100000) {
+    PhraseMap(uint_t _len = 15000000) {
         this->repr.reserve(_len);
     }
 
