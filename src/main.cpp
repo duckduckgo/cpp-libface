@@ -552,7 +552,7 @@ handle_export(enum mg_event event,
     const time_t start_time = time(NULL);
 
     for (size_t i = 0; i < pm.repr.size(); ++i) {
-        fout<<pm.repr[i].weight<<'\t'<<pm.repr[i].phrase<<std::string(pm.repr[i].snippet)<<'\n';
+        fout<<pm.repr[i].weight<<'\t'<<pm.repr[i].phrase<<'\t'<<std::string(pm.repr[i].snippet)<<'\n';
     }
 
     building = false;
