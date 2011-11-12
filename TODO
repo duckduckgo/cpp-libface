@@ -1,1 +1,2 @@
 1. Approximate query matching (potentially use soundex and/or expose another search URL)
+2. mmap() the input file into memory so that we need not read the snippets in
