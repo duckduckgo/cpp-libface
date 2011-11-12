@@ -4,6 +4,7 @@
 #include <utility>
 #include <vector>
 #include <string>
+#include <string.h>
 
 #if !defined RMQ
 #define RMQ SegmentTree
@@ -12,12 +13,44 @@
 
 typedef unsigned int uint_t;
 
+struct StringProxy {
+    const char *mem_base;
+    int len;
+
+    StringProxy(const char *_mb = NULL, int _l = 0)
+        : mem_base(_mb), len(_l)
+    { }
+
+    void
+    assign(const char *_mb, int _l) {
+        this->mem_base = _mb;
+        this->len = _l;
+    }
+
+    size_t
+    size() const {
+        return this->len;
+    }
+
+    operator std::string() const {
+        return std::string(this->mem_base, this->len);
+    }
+
+    void
+    swap(StringProxy &rhs) {
+        std::swap(this->mem_base, rhs.mem_base);
+        std::swap(this->len, rhs.len);
+    }
+
+};
+
+
 struct phrase_t {
     uint_t weight;
     std::string phrase;
-    std::string snippet;
+    StringProxy snippet;
 
-    phrase_t(uint_t _w, std::string const& _p, std::string const& _s)
+    phrase_t(uint_t _w, std::string const& _p, StringProxy const& _s)
         : weight(_w), phrase(_p), snippet(_s) {
     }
 

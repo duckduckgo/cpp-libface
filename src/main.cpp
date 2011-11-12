@@ -6,6 +6,11 @@
 #include <time.h>
 #include <getopt.h>
 #include <libgen.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+
 
 // Custom-includes
 #include "mongoose.h"
@@ -42,6 +47,8 @@
 
 PhraseMap pm;
 RMQ st;
+char *if_mmap_addr = NULL;
+size_t if_length = 0;
 bool building = false;
 unsigned long long nreq = 0;
 time_t started_at;
@@ -50,29 +57,44 @@ bool opt_show_help = false;
 const char *ac_file = NULL;
 const char *port = "6767";
 
+// We are in a non-WS state
 #define ILP_BEFORE_NON_WS  0
+// We are parsing the weight (integer)
 #define ILP_WEIGHT         1
+// We are in the state after the weight but before the TAB character
+// separating the weight & the phrase
 #define ILP_BEFORE_PTAB    2
+// We are in the state after the TAB character and potentially before
+// the phrase starts (or at the phrase)
 #define ILP_AFTER_PTAB     3
+// The state parsing the phrase
 #define ILP_PHRASE         4
+// The state after the TAB character following the phrase (currently
+// unused)
 #define ILP_AFTER_STAB     5
+// The state in which we are parsing the snippet
 #define ILP_SNIPPET        6
 
 
 #define IMPORT_FILE_NOT_FOUND 1
 
 
+
 struct InputLineParser {
     int state;
-    const char *buff;
+    const char *mem_base, *buff;
+    size_t buff_offset;
     int *pn;
-    std::string *pphrase, *psnippet;
+    std::string *pphrase;
+    // The input file is mmap()ped in the process' address space.
+    StringProxy *psnippet_proxy;
 
-    InputLineParser(const char *_buff, int *_pn, 
-                    std::string *_pphrase, std::string *_psnippet)
-        : state(ILP_BEFORE_NON_WS), buff(_buff), pn(_pn), 
-          pphrase(_pphrase), psnippet(_psnippet) {
-    }
+    InputLineParser(const char *_mem_base, size_t _bo, 
+                    const char *_buff, int *_pn, 
+                    std::string *_pphrase, StringProxy *_psp)
+        : state(ILP_BEFORE_NON_WS), mem_base(_mem_base), buff(_buff), 
+          buff_offset(_bo), pn(_pn), pphrase(_pphrase), psnippet_proxy(_psp)
+    { }
 
     void
     start_parsing() {
@@ -81,8 +103,8 @@ struct InputLineParser {
         const char *p_start = NULL, *s_start = NULL;
         int p_len = 0, s_len = 0;
 
-        while (buff[i]) {
-            char ch = buff[i];
+        while (this->buff[i]) {
+            char ch = this->buff[i];
             DCERR("State: "<<this->state<<", read: "<<ch<<"\n");
 
             switch (this->state) {
@@ -109,13 +131,7 @@ struct InputLineParser {
 
             case ILP_BEFORE_PTAB:
                 if (ch == '\t') {
-                    // this->state = ILP_AFTER_PTAB;
-                    // 
-                    // Note: Skip to ILP_PHRASE since the phrase may
-                    // start with a white-space that we wish to
-                    // preserve.
-                    p_start = this->buff + i + 1;
-                    this->state = ILP_PHRASE;
+                    this->state = ILP_AFTER_PTAB;
                 }
                 ++i;
                 break;
@@ -136,13 +152,19 @@ struct InputLineParser {
                     ++p_len;
                 }
                 else {
-                    this->state = ILP_AFTER_STAB;
+                    // Note: Skip to ILP_SNIPPET since the snippet may
+                    // start with a white-space that we wish to
+                    // preserve.
+                    // 
+                    // this->state = ILP_AFTER_STAB;
+                    this->state = ILP_SNIPPET;
+                    s_start = this->buff + i + 1;
                 }
                 ++i;
                 break;
 
             case ILP_AFTER_STAB:
-                if (!isspace(ch)) {
+                if (isspace(ch)) {
                     this->state = ILP_SNIPPET;
                     s_start = this->buff + i;
                 }
@@ -177,13 +199,29 @@ struct InputLineParser {
 
     void
     on_snippet(const char *data, int len) {
-        if (len && this->psnippet) {
-            this->psnippet->assign(data, len);
+        if (len && this->psnippet_proxy) {
+            const char *base = this->mem_base + this->buff_offset + 
+                (data - this->buff);
+            DCERR("on_snippet::base: "<<(void*)base<<", len: "<<len<<"\n");
+            this->psnippet_proxy->assign(base, len);
         }
     }
 
 };
 
+
+size_t
+file_size(const char *path) {
+    struct stat sbuf;
+    int r = stat(path, &sbuf);
+
+    assert(r == 0);
+    if (r < 0) {
+        return 0;
+    }
+
+    return sbuf.st_size;
+}
 
 std::string
 get_qs(const struct mg_request_info *request_info, std::string const& key) {
@@ -275,11 +313,12 @@ rich_suggestions_json_array(vp_t& suggestions) {
     ret.reserve(OUTPUT_SIZE_RESERVE);
     for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
         escape_special_chars(i->phrase);
-        escape_special_chars(i->snippet);
+        std::string snippet = i->snippet;
+        escape_special_chars(snippet);
 
         std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
         ret += " { \"phrase\": \"" + i->phrase + "\", \"score\": " + uint_to_string(i->weight) + 
-            (i->snippet.empty() ? "" : ", \"snippet\": \"" + i->snippet + "\"") + "}" + trailer;
+            (snippet.empty() ? "" : ", \"snippet\": \"" + snippet + "\"") + "}" + trailer;
     }
     ret += "]";
     return ret;
@@ -374,14 +413,32 @@ do_import(std::string file, int sorted, uint_t limit,
     FILE *fin = fopen(file.c_str(), "r");
 #endif
 
+    int fd = open(file.c_str(), O_RDONLY);
+
+    // Potential race condition + not checking for return value
+    if_length = file_size(file.c_str());
+
     DCERR("handle_import::file:"<<file<<endl);
 
-    if (!fin) {
+    if (!fin || !fd) {
         return -IMPORT_FILE_NOT_FOUND;
     }
     else {
         building = true;
         int nlines = 0;
+        int foffset = 0;
+
+        if (if_mmap_addr) {
+            munmap(if_mmap_addr, if_length);
+        }
+
+        // mmap() the input file in
+        if_mmap_addr = (char*)mmap(NULL, if_length, PROT_READ, MAP_SHARED, fd, 0);
+        if (!if_mmap_addr) {
+            fclose(fin);
+            close(fd);
+            return -IMPORT_FILE_NOT_FOUND;
+        }
 
         pm.repr.clear();
         char buff[INPUT_LINE_SIZE];
@@ -394,34 +451,35 @@ do_import(std::string file, int sorted, uint_t limit,
 #endif
                && limit--) {
 
+            buff[0] = '\0';
+
 #if defined USE_CXX_IO
             fin.getline(buff, INPUT_LINE_SIZE);
-#else
-            char *got = fgets(buff, INPUT_LINE_SIZE, fin);
-#endif
-
-            ++nlines;
-
-#if defined USE_CXX_IO
             const int llen = fin.gcount();
             buff[INPUT_LINE_SIZE - 1] = '\0';
 #else
+            char *got = fgets(buff, INPUT_LINE_SIZE, fin);
             if (!got) {
                 break;
             }
             const int llen = strlen(buff);
-            if (buff[llen-1] == '\n') {
+            if (llen && buff[llen-1] == '\n') {
                 buff[llen-1] = '\0';
             }
 #endif
 
+            ++nlines;
+
             int weight = 0;
-            std::string phrase, snippet;
-            InputLineParser(buff, &weight, &phrase, &snippet).start_parsing();
+            std::string phrase;
+            StringProxy snippet;
+            InputLineParser(if_mmap_addr, foffset, buff, &weight, &phrase, &snippet).start_parsing();
+
+            foffset += llen;
 
             if (!phrase.empty()) {
                 str_lowercase(phrase);
-                DCERR("Adding: "<<weight<<", "<<phrase<<", "<<snippet<<endl);
+                DCERR("Adding: "<<weight<<", "<<phrase<<", "<<std::string(snippet)<<endl);
                 pm.insert(weight, phrase, snippet);
             }
         }
@@ -494,7 +552,7 @@ handle_export(enum mg_event event,
     const time_t start_time = time(NULL);
 
     for (size_t i = 0; i < pm.repr.size(); ++i) {
-        fout<<pm.repr[i].weight<<'\t'<<pm.repr[i].phrase<<pm.repr[i].snippet<<'\n';
+        fout<<pm.repr[i].weight<<'\t'<<pm.repr[i].phrase<<std::string(pm.repr[i].snippet)<<'\n';
     }
 
     building = false;

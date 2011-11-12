@@ -55,7 +55,7 @@ public:
     }
 
     void
-    insert(uint_t weight, std::string const& p, std::string const& s) {
+    insert(uint_t weight, std::string const& p, StringProxy const& s) {
         this->repr.push_back(phrase_t(weight, p, s));
     }
 
