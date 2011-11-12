@@ -109,7 +109,13 @@ struct InputLineParser {
 
             case ILP_BEFORE_PTAB:
                 if (ch == '\t') {
-                    this->state = ILP_AFTER_PTAB;
+                    // this->state = ILP_AFTER_PTAB;
+                    // 
+                    // Note: Skip to ILP_PHRASE since the phrase may
+                    // start with a white-space that we wish to
+                    // preserve.
+                    p_start = this->buff + i + 1;
+                    this->state = ILP_PHRASE;
                 }
                 ++i;
                 break;
@@ -517,7 +523,7 @@ handle_export(enum mg_event event,
     const time_t start_time = time(NULL);
 
     for (size_t i = 0; i < pm.repr.size(); ++i) {
-        fout<<pm.repr[i].weight<<'\t'<<pm.repr[i].phrase<<'\n';
+        fout<<pm.repr[i].weight<<'\t'<<pm.repr[i].phrase<<pm.repr[i].snippet<<'\n';
     }
 
     building = false;
