@@ -415,8 +415,6 @@ do_import(std::string file, int sorted, uint_t limit,
             }
 #endif
 
-
-#if 1
             int weight = 0;
             std::string phrase, snippet;
             InputLineParser(buff, &weight, &phrase, &snippet).start_parsing();
@@ -426,33 +424,6 @@ do_import(std::string file, int sorted, uint_t limit,
                 DCERR("Adding: "<<weight<<", "<<phrase<<", "<<snippet<<endl);
                 pm.insert(weight, phrase, snippet);
             }
-
-#else
-            int tabpos = std::find(buff, buff + llen, '\t') - buff;
-            if (tabpos < llen && tabpos > 0 && tabpos < llen - 1) {
-                int data_start = tabpos + 1;
-                int phrase_len = llen - tabpos - 2;
-
-                while (data_start < llen && isspace(buff[data_start])) {
-                    ++data_start;
-                    --phrase_len;
-                }
-
-                if (phrase_len > 0) {
-                    std::string phrase(buff + data_start, phrase_len);
-
-                    // Convert to lowercase
-                    std::transform(phrase.begin(), phrase.end(), 
-                                   phrase.begin(), to_lowercase);
-
-                    buff[tabpos] = '\0';
-
-                    uint_t weight = atoi(buff);
-                    // DCERR("Adding: "<<phrase<<", "<<weight<<endl);
-                    pm.insert(phrase, weight);
-                }
-            }
-#endif
         }
 
         fclose(fin);
