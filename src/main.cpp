@@ -3,12 +3,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <time.h>
 #include <getopt.h>
 #include <libgen.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <assert.h>
 #include <fcntl.h>
 
 
@@ -239,6 +241,25 @@ get_qs(const struct mg_request_info *request_info, std::string const& key) {
         rv = val;
     }
     return rv;
+}
+
+int
+get_memory_usage(pid_t pid) {
+    char cbuff[4096];
+    sprintf(cbuff, "pmap -x %d | tail -n +3 | awk 'BEGIN { S=0;T=0 } { if (match($3, /\\-/)) {S=1} if (S==0) {T+=$3} } END { print T }'", pid);
+    FILE *pf = popen(cbuff, "r");
+    if (!pf) {
+        return -1;
+    }
+    int r = fread(cbuff, 1, 100, pf);
+    if (r < 0) {
+        fclose(pf);
+        return -1;
+    }
+    cbuff[r-1] = '\0';
+    r = atoi(cbuff);
+    fclose(pf);
+    return r;
 }
 
 void
@@ -624,6 +645,7 @@ handle_stats(enum mg_event event,
     else {
         mg_printf(conn, "Data store size: %d entries\n", pm.repr.size());
     }
+    mg_printf(conn, "Memory usage: %d MiB\n", get_memory_usage(getpid())/1024);
 
     return (void*)"";
 }
