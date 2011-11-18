@@ -322,7 +322,11 @@ escape_special_chars(std::string& str) {
             break;
 
         case '\n':
-            ret += "\\n";
+            ret += "\\\n";
+            break;
+
+        case '\t':
+            ret += "\\\t";
             break;
 
         default:
