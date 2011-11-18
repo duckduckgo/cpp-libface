@@ -313,10 +313,6 @@ escape_special_chars(std::string& str) {
             ret += "\\\"";
             break;
 
-        case '\'':
-            ret += "\\\'";
-            break;
-
         case '\\':
             ret += "\\\\";
             break;
