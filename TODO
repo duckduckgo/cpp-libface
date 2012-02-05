@@ -1,2 +1,4 @@
 1. Approximate query matching (potentially use soundex and/or expose another search URL)
 2. mmap() the input file into memory so that we need not read the snippets in
+3. Detect if input file is sorted and sort of not sorted (eliminates the -s switch)
+4. Show upper bound on time saved if input file were sorted (in case of unsorted input file)
