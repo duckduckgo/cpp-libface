@@ -10,7 +10,7 @@ The task of implementing a better RMQ data structure that takes up O(N) memory a
 
 lib-face is written using C++ and uses the in-process [Mongoose Web Server](http://code.google.com/p/mongoose/) to serve requests.
 
-Visit the [QuickStartGuide] to get started now!
+Visit the [Quick Start Guide](https://github.com/dhruvbird/lib-face/wiki/Quick-Start-Guide) to get started now!
 
 See the [Benchmarks]!
 
