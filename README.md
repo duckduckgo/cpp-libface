@@ -12,6 +12,6 @@ lib-face is written using C++ and uses the in-process [Mongoose Web Server](http
 
 Visit the [Quick Start Guide](https://github.com/dhruvbird/lib-face/wiki/Quick-Start-Guide) to get started now!
 
-See the [Benchmarks]!
+See the [Benchmarks](https://github.com/dhruvbird/lib-face/wiki/Benchmarks)!
 
 Read the [paper](http://dhruvbird.com/autocomplete.pdf)!
