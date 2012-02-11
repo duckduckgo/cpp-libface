@@ -58,6 +58,7 @@ bool ac_sorted = false;
 bool opt_show_help = false;
 const char *ac_file = NULL;
 const char *port = "6767";
+const char *project_homepage_url = "https://github.com/duckduckgo/cpp-libface/";
 
 // We are in a non-WS state
 #define ILP_BEFORE_NON_WS  0
@@ -704,7 +705,7 @@ show_usage(char *argv[]) {
     printf("-p, --port=PORT      TCP port on which to start lib-face (default: 6767)\n");
     printf("-s, --sorted         If specified, the input file (PATH) is assumed to be sorted by phrase\n");
     printf("\n");
-    printf("Please visit https://code.google.com/p/lib-face/ for more information.\n");
+    printf("Please visit %s for more information.\n", project_homepage_url);
 }
 
 void
