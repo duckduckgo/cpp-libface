@@ -148,6 +148,9 @@ namespace segtree {
         SegmentTree st;
         st.initialize(v);
 
+	printf("Testing SegmentTree implementation\n");
+	printf("----------------------------------\n");
+
         for (size_t i = 0; i < v.size(); ++i) {
             for (size_t j = i; j < v.size(); ++j) {
                 pui_t one = st.query_max(i, j);
@@ -157,6 +160,7 @@ namespace segtree {
             }
         }
 
+	printf("\n");
         return 0;
     }
 }
