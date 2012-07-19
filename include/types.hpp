@@ -91,5 +91,8 @@ typedef std::vector<std::string> vs_t;
 typedef std::pair<vs_t::iterator, vs_t::iterator> pvsi_t;
 typedef std::pair<vpsui_t::iterator, vpsui_t::iterator> pvpsuii_t;
 
+typedef std::vector<char> vc_t;
+typedef std::vector<vc_t> vvc_t;
+typedef std::vector<vvc_t> vvvc_t;
 
 #endif // LIBFACE_TYPES_HPP
