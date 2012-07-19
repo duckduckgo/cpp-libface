@@ -1,3 +1,4 @@
+// -*- mode:c++; c-basic-offset:4 -*-
 #if !defined LIBFACE_SPARSETABLE_HPP
 #define LIBFACE_SPARSETABLE_HPP
 
@@ -15,15 +16,24 @@ using namespace std;
 
 
 class SparseTable {
-    vvpui_t repr;
+    /* For each element in repr, we store just the index of the MAX
+     * element in data.
+     *
+     * i.e. If the MAX element in the index range [10..17] is at index
+     * 14, then repr[3][10] will contain the value 14.
+     *
+     * repr[X] stores MAX indexes for blocks of length (1<<X == 2^X).
+     *
+     */
+    vui_t data;
+    vvui_t repr;
     uint_t len;
-    // For each element, first is the max. value under (and including
-    // this node) and second is the index where this max. value occurs.
 
 public:
 
     void initialize(vui_t const& elems) {
 
+	this->data = elems;
         this->len = elems.size();
         this->repr.clear();
 
@@ -36,28 +46,40 @@ public:
 
         this->repr[0].resize(this->len);
         for (size_t i = 0; i < this->len; ++i) {
-            this->repr[0][i] = std::make_pair(elems[i], i);
+	    // This is the identity mapping, since the MAX element in
+	    // a range of length 1 is the element itself.
+            this->repr[0][i] = i;
         }
 
         for (size_t i = 1; i < ntables; ++i) {
-            // bs is the 'block size'. i.e. Number of element in the
-            // array this->repr[i]
-            // cerr<<"starting i: "<<i<<endl;
+	    /* The previous 'block size' */
             const uint_t pbs = 1<<(i-1);
+
+            /* bs is the 'block size'. i.e. The number of elements
+	     * from the data that are used to computed the max value
+	     * and store it at repr[i][...].
+	     */
             const uint_t bs = 1<<i;
+
+	    /* The size of the vector at repr[i]. We need to resize it
+	     * to this size.
+	     */
             const size_t vsz = this->len - bs + 1;
 
-            this->repr[i] = vpui_t();
+	    cerr<<"starting i: "<<i<<" bs: "<<bs<<endl;
+
             this->repr[i].resize(vsz);
 
             // cerr<<"i: "<<i<<", vsz: "<<vsz<<endl;
 
-            vpui_t& curr = this->repr[i];
-            vpui_t& prev = this->repr[i - 1];
+            vui_t& curr = this->repr[i];
+            vui_t& prev = this->repr[i - 1];
 
             for (size_t j = 0; j < vsz; ++j) {
                 // 'j' is the starting index of a block of size 'bs'
-                if (prev[j].first > prev[j+pbs].first) {
+		const uint_t prev_elem1 = data[prev[j]];
+		const uint_t prev_elem2 = data[prev[j+pbs]];
+                if (prev_elem1 > prev_elem2) {
                     curr[j] = prev[j];
                 }
                 else {
@@ -83,11 +105,14 @@ public:
         const size_t f = qf, l = ql + 1 - (1 << ti);
 
         // cerr<<"query_max("<<qf<<", "<<ql<<"), ti: "<<ti<<", f: "<<f<<", l: "<<l<<endl;
-        if (this->repr[ti][f].first > this->repr[ti][l].first) {
-            return this->repr[ti][f];
+	const uint_t data1 = data[this->repr[ti][f]];
+	const uint_t data2 = data[this->repr[ti][l]];
+
+        if (data1 > data2) {
+            return std::make_pair(data1, this->repr[ti][f]);
         }
         else {
-            return this->repr[ti][l];
+            return std::make_pair(data2, this->repr[ti][l]);
         }
     }
 
@@ -112,6 +137,9 @@ namespace sparsetable {
 
     int
     test() {
+	printf("Testing SparseTable implementation\n");
+	printf("----------------------------------\n");
+
         vui_t v;
         v.push_back(45);
         v.push_back(4);
@@ -134,9 +162,6 @@ namespace sparsetable {
 
         SparseTable st;
         st.initialize(v);
-
-	printf("Testing SparseTable implementation\n");
-	printf("----------------------------------\n");
 
         for (size_t i = 0; i < v.size(); ++i) {
             for (size_t j = i; j < v.size(); ++j) {

@@ -81,6 +81,7 @@ typedef std::pair<vpi_t, vpi_t> pvpi_t;
 
 typedef std::pair<uint_t, uint_t> pui_t;
 typedef std::vector<uint_t> vui_t;
+typedef std::vector<vui_t> vvui_t;
 typedef std::vector<pui_t> vpui_t;
 typedef std::vector<vpui_t> vvpui_t;
 
