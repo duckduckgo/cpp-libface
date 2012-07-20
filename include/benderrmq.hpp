@@ -27,6 +27,8 @@ void PRINT_BITMAP(int i) {
 }
 #endif
 
+#define MIN_SIZE_FOR_BENDER_RMQ 16
+
 struct BinaryTreeNode {
     BinaryTreeNode *left, *right;
     uint_t data;
@@ -249,14 +251,15 @@ public:
 };
 
 class BenderRMQ {
-    /* For inputs <= 64 in size, we use just the sparse table.
+    /* For inputs < MIN_SIZE_FOR_BENDER_RMQ in size, we use just the
+     * sparse table.
      *
-     * For inputs > 64 in size, we use perform a Euler Tour of the
-     * input and potentially blow it up to 2x. Let the size of the
-     * blown up input be 'n' elements. We use 'st' for 2n/lg n of the
-     * elements and for each block of size (1/2)lg n, we use
-     * 'lt'. Since 'n' can be at most 2^32, (1/2)lg n can be at most
-     * 16.
+     * For inputs > MIN_SIZE_FOR_BENDER_RMQ in size, we use perform a
+     * Euler Tour of the input and potentially blow it up to 2x. Let
+     * the size of the blown up input be 'n' elements. We use 'st' for
+     * 2n/lg n of the elements and for each block of size (1/2)lg n,
+     * we use 'lt'. Since 'n' can be at most 2^32, (1/2)lg n can be at
+     * most 16.
      *
      */
     SparseTable st;
@@ -282,12 +285,11 @@ public:
 
     void initialize(vui_t const& elems) {
 	len = elems.size();
-	/*
-	if (elems.size() < 16) {
+
+	if (len < MIN_SIZE_FOR_BENDER_RMQ) {
 	    st.initialize(elems);
 	    return;
 	}
-	*/
 
 	vui_t levels;
 	euler.reserve(elems.size() * 2);
@@ -348,6 +350,10 @@ public:
     query_max(uint_t qf, uint_t ql) {
         if (qf >= this->len || ql >= this->len || ql < qf) {
             return make_pair(minus_one, minus_one);
+        }
+
+	if (len < MIN_SIZE_FOR_BENDER_RMQ) {
+            return st.query_max(qf, ql);
         }
 
 	DPRINTF("[1] (qf, ql) = (%d, %d)\n", qf, ql);
