@@ -30,31 +30,76 @@ struct BinaryTreeNode {
 };
 
 void
-euler_tour(BinaryTreeNode *n, vui_t &output, vui_t &rep_indexes) {
+euler_tour(BinaryTreeNode *n, 
+	   vui_t &output, 
+	   vui_t &levels, 
+	   vui_t &rep_indexes /* rep_indexes stores representative
+	      indexes which maps from the original index to the index
+	      into the euler tour array, which is a +- RMQ */, 
+	   int level = 1) {
     if (!n) {
 	return;
     }
     output.push_back(n->data);
     rep_indexes[n->index] = output.size() - 1;
+    levels.push_back(level);
     if (n->left) {
-	euler_tour(n->left, output);
+	euler_tour(n->left, output, levels, rep_indexes, level+1);
 	output.push_back(n->data);
     }
     if (n->right) {
-	euler_tour(n->right, output);
+	euler_tour(n->right, output, levels, rep_indexes, level+1);
 	output.push_back(n->data);
     }
+}
+
+BinaryTreeNode*
+make_cartesian_tree(vui_t const &input) {
+    BinaryTreeNode *curr = NULL;
+    std::stack<BinaryTreeNode*> stk;
+
+    if (input.empty()) {
+	return NULL;
+    }
+
+    for (int i = 0; i < input.size(); ++i) {
+	curr = new BinaryTreeNode(input[i], i);
+	if (stk.empty()) {
+	    stk.push(curr);
+	} else {
+	    if (input[i] < stk.top()->data) {
+		// Just add it
+		stk.top()->right = curr;
+		stk.push(curr);
+	    } else {
+		// Back up till we are the largest node on the stack
+		BinaryTreeNode *top = NULL;
+		while (!stk.empty() && stk.top()->data < input[i]) {
+		    top = stk.top();
+		    stk.pop();
+		}
+		top->left = curr;
+		stk.push(curr);
+	    }
+	}
+    }
+
+    assert(!stk.empty());
+    BinaryTreeNode *top = NULL;
+    while (!stk.empty()) {
+	top = stk.top();
+	stk.pop();
+    }
+    return top;
 }
 
 class LookupTables {
     vvvc_t repr;
 
 public:
-    LookupTables(int nbits) {
-	this->init(nbits);
-    }
+    LookupTables() { }
 
-    void init(int nbits) {
+    void initialize(int nbits) {
 	int ntables = 1 << nbits;
 	repr.resize(ntables);
 	std::vector<int> tmp(nbits);
@@ -170,10 +215,39 @@ class BenderRMQ {
     /* The real length of input that the user gave us */
     uint_t len;
 
+    int lgn_by_2;
+    int _2n_lgn;
+
 public:
 
     void initialize(vui_t const& elems) {
+	len = elems.length();
+	if (elems.size() < 15) {
+	    st.initialize(elems);
+	    return;
+	}
 
+	vui_t euler, levels;
+	euler.reserve(elems.size() * 2);
+	mapping.resize(elems.size());
+	BinaryTreeNode *root = make_cartesian_tree(elems);
+	euler_tour(root, euler, levels, mapping);
+
+	unit_t n = euler.size();
+	lgn_by_2 = log2(n) / 2;
+	_2n_lgn  = n / lgn_by_2;
+	lt.initialize(lgn_by_2);
+
+	vui_t reduced;
+
+	for (uint_t i = 0; i < n; i += lgn_by_2) {
+	    reduced.push_back(euler[i]);
+	    int bitmap = 1L;
+	    for (int j = 1; j < lgn_by_2; ++j) {
+		bitmap <<= 1;
+		bitmap |= (levels[i] > levels[i-1]);
+	    }
+	}
 	cerr<<"initialize() completed"<<endl;
     }
 
