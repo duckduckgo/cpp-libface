@@ -17,11 +17,11 @@
 #define DPRINTF(ARGS...) fprintf(stderr, ARGS);
 #endif
 
-#define assert_lt(X,Y) if (!(X<Y)) { fprintf(stderr, "%d < %d FAILED\n", X, Y); assert(X<Y); }
-#define assert_gt(X,Y) if (!(X>Y)) { fprintf(stderr, "%d > %d FAILED\n", X, Y); assert(X>Y); }
-#define assert_le(X,Y) if (!(X<=Y)) { fprintf(stderr, "%d <= %d FAILED\n", X, Y); assert(X<=Y); }
-#define assert_eq(X,Y) if (!(X==Y)) { fprintf(stderr, "%d == %d FAILED\n", X, Y); assert(X==Y); }
-#define assert_ne(X,Y) if (!(X!=Y)) { fprintf(stderr, "%d != %d FAILED\n", X, Y); assert(X!=Y); }
+#define assert_lt(X,Y) if (!((X)<(Y))) { fprintf(stderr, "%d < %d FAILED\n", (X), (Y)); assert((X)<(Y)); }
+#define assert_gt(X,Y) if (!((X)>(Y))) { fprintf(stderr, "%d > %d FAILED\n", (X), (Y)); assert((X)>(Y)); }
+#define assert_le(X,Y) if (!((X)<=(Y))) { fprintf(stderr, "%d <= %d FAILED\n", (X), (Y)); assert((X)<=(Y)); }
+#define assert_eq(X,Y) if (!((X)==(Y))) { fprintf(stderr, "%d == %d FAILED\n", (X), (Y)); assert((X)==(Y)); }
+#define assert_ne(X,Y) if (!((X)!=(Y))) { fprintf(stderr, "%d != %d FAILED\n", (X), (Y)); assert((X)!=(Y)); }
 
 uint_t log2(uint_t n) {
     uint_t lg2 = 0;

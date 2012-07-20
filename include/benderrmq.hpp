@@ -17,17 +17,16 @@
 
 using namespace std;
 
-#if defined NDEBUG
-#define PRINT_BITMAP(I)
-#else
-void PRINT_BITMAP(int i) {
-    for (int x = 17; x >= 0; --x) {
-	DPRINTF("%d", (i & (1L << x)) ? 1 : 0);
-    }
-}
-#endif
-
 #define MIN_SIZE_FOR_BENDER_RMQ 16
+
+std::string
+bitmap_str(uint_t i) {
+    std::string out;
+    for (int x = 17; x >= 0; --x) {
+	out += '0' + ((i & (1L << x)) ? 1 : 0);
+    }
+    return out;
+}
 
 struct BinaryTreeNode {
     BinaryTreeNode *left, *right;
@@ -206,6 +205,9 @@ public:
 	} // for (i)
     }
 
+    /* Return the index of the largest element in the range [l..u]
+     * (both inclusive) within the lookup table at index 'index'.
+     */
     uint_t
     query_max(uint_t index, uint_t l, uint_t u) {
 	assert_le(l, u);
@@ -228,11 +230,9 @@ public:
 	int nr = repr[0].size();
 	int nc = repr[0][0].size();
 	for (uint_t i = 0; i < repr.size(); ++i) {
-	    DPRINTF("Bitmap: ");
-	    PRINT_BITMAP(i);
-	    DPRINTF("\n");
-
+	    DPRINTF("Bitmap: %s\n", bitmap_str(i).c_str());
 	    DPRINTF("   |");
+
 	    for (int c = 0; c < nc; ++c) {
 		DPRINTF("%3d ", c);
 		if (c+1 != nc) {
@@ -339,9 +339,7 @@ public:
 		max_in_block = std::max(max_in_block, value);
 		fprintf(stderr, "%u, ", value);
 	    }
-	    DPRINTF("), Bitmap: ");
-	    PRINT_BITMAP(bitmap);
-	    DPRINTF("\n");
+	    DPRINTF("), Bitmap: %s\n", bitmap_str(bitmap).c_str());
 	    table_map[i / lgn_by_2] = bitmap;
 	    reduced.push_back(max_in_block);
 	}
@@ -394,9 +392,7 @@ public:
 	} else if (first_block_index == last_block_index) {
 	    // The query is completely within a block.
 	    const uint_t bitmapx = table_map[first_block_index];
-	    DPRINTF("bitmapx: ");
-	    PRINT_BITMAP(bitmapx);
-	    DPRINTF("\n");
+	    DPRINTF("bitmapx: %s\n", bitmap_str(bitmapx).c_str());
 	    qf %= lgn_by_2;
 	    ql %= lgn_by_2;
 	    const uint_t imax = lt.query_max(bitmapx, qf, ql) + first_block_index*lgn_by_2;
@@ -415,11 +411,8 @@ public:
 	const uint_t bitmap1 = table_map[first_block_index];
 	const uint_t bitmap2 = table_map[last_block_index];
 
-	DPRINTF("bitmap1: ");
-	PRINT_BITMAP(bitmap1);
-	DPRINTF(", bitmap2: ");
-	PRINT_BITMAP(bitmap2);
-	DPRINTF("\n");
+	DPRINTF("bitmap1: %s, bitmap2: %s\n", bitmap_str(bitmap1).c_str(),
+		bitmap_str(bitmap2).c_str());
 
 	uint_t max1i = lt.query_max(bitmap1, f1, f2);
 	uint_t max2i = lt.query_max(bitmap2, l1, l2);
