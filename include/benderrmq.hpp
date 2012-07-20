@@ -43,14 +43,18 @@ struct BinaryTreeNode {
     { }
 };
 
+/* This is a destructive function - one which deletes the tree rooted
+ * at node n
+ */
 void
 euler_tour(BinaryTreeNode *n, 
-	   vui_t &output, 
-	   vui_t &levels, 
+	   vui_t &output, /* Where the output is written. Should be empty */
+	   vui_t &levels, /* Where the level for each node is written. Should be empty */
 	   vui_t &mapping /* mapping stores representative
 	      indexes which maps from the original index to the index
 	      into the euler tour array, which is a +- RMQ */, 
-	   vui_t &rev_mapping, 
+	   vui_t &rev_mapping /* Reverse mapping to go from +-RMQ
+				 indexes to user provided indexes */, 
 	   int level = 1) {
     DPRINTF("euler_tour(%d, %d)\n", n?n->data:-1, n?n->index:-1);
     if (!n) {
@@ -73,6 +77,7 @@ euler_tour(BinaryTreeNode *n,
 	rev_mapping.push_back(n->index);
 	levels.push_back(level);
     }
+    delete n;
 }
 
 BinaryTreeNode*
@@ -84,7 +89,7 @@ make_cartesian_tree(vui_t const &input) {
 	return NULL;
     }
 
-    for (int i = 0; i < input.size(); ++i) {
+    for (uint_t i = 0; i < input.size(); ++i) {
 	curr = new BinaryTreeNode(input[i], i);
 	DPRINTF("ct(%d, %d)\n", curr->data, curr->index);
 	if (stk.empty()) {
@@ -222,7 +227,7 @@ public:
 	}
 	int nr = repr[0].size();
 	int nc = repr[0][0].size();
-	for (int i = 0; i < repr.size(); ++i) {
+	for (uint_t i = 0; i < repr.size(); ++i) {
 	    DPRINTF("Bitmap: ");
 	    PRINT_BITMAP(i);
 	    DPRINTF("\n");
@@ -297,6 +302,7 @@ public:
 	BinaryTreeNode *root = make_cartesian_tree(elems);
 	DPRINTF("GraphViz (paste at: http://ashitani.jp/gv/):\n%s\n", toGraphViz(NULL, root).c_str());
 	euler_tour(root, euler, levels, mapping, rev_mapping);
+	root = NULL; // This tree has now been deleted
 
 	assert_eq(levels.size(), euler.size());
 	assert_eq(levels.size(), rev_mapping.size());
