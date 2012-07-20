@@ -18,6 +18,7 @@
 #include "mongoose.h"
 #include <include/segtree.hpp>
 #include <include/sparsetable.hpp>
+#include <include/benderrmq.hpp>
 #include <include/phrase_map.hpp>
 #include <include/suggest.hpp>
 #include <include/types.hpp>
