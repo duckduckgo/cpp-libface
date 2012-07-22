@@ -42,6 +42,36 @@ struct BinaryTreeNode {
     { }
 };
 
+template <typename T>
+class SimpleFixedObjectAllocator {
+    T *memory;
+    uint_t n;
+    uint_t start;
+
+public:
+    SimpleFixedObjectAllocator(uint_t _n)
+        : memory(NULL), n(_n), start(0) {
+        memory = (T*)operator new(sizeof(T) * n);
+    }
+
+    T *get() {
+        assert_lt(start, n);
+        return memory + (start++);
+    }
+
+    void put(T *mem) { }
+
+    void clear() {
+        operator delete(memory);
+        memory = NULL;
+    }
+
+    ~SimpleFixedObjectAllocator() {
+        clear();
+    }
+};
+
+
 /* This is a destructive function - one which deletes the tree rooted
  * at node n
  */
@@ -76,11 +106,15 @@ euler_tour(BinaryTreeNode *n,
 	rev_mapping.push_back(n->index);
 	levels.push_back(level);
     }
-    delete n;
+    // We don't delete the node here since the clear() function on the
+    // SimpleFixedObjectAllocator<BinaryTreeNode> will take care of
+    // cleaning up the associated memory.
+    //
+    // delete n;
 }
 
 BinaryTreeNode*
-make_cartesian_tree(vui_t const &input) {
+make_cartesian_tree(vui_t const &input, SimpleFixedObjectAllocator<BinaryTreeNode> &alloc) {
     BinaryTreeNode *curr = NULL;
     std::stack<BinaryTreeNode*> stk;
 
@@ -89,8 +123,10 @@ make_cartesian_tree(vui_t const &input) {
     }
 
     for (uint_t i = 0; i < input.size(); ++i) {
-	curr = new BinaryTreeNode(input[i], i);
+	curr = alloc.get();
+        new (curr) BinaryTreeNode(input[i], i);
 	DPRINTF("ct(%d, %d)\n", curr->data, curr->index);
+
 	if (stk.empty()) {
 	    stk.push(curr);
 	    DPRINTF("[1] stack top (%d, %d)\n", curr->data, curr->index);
@@ -297,12 +333,18 @@ public:
 	}
 
 	vui_t levels;
+        SimpleFixedObjectAllocator<BinaryTreeNode> alloc(len);
+
 	euler.reserve(elems.size() * 2);
 	mapping.resize(elems.size());
-	BinaryTreeNode *root = make_cartesian_tree(elems);
+	BinaryTreeNode *root = make_cartesian_tree(elems, alloc);
+
 	DPRINTF("GraphViz (paste at: http://ashitani.jp/gv/):\n%s\n", toGraphViz(NULL, root).c_str());
+
 	euler_tour(root, euler, levels, mapping, rev_mapping);
+
 	root = NULL; // This tree has now been deleted
+        alloc.clear();
 
 	assert_eq(levels.size(), euler.size());
 	assert_eq(levels.size(), rev_mapping.size());
@@ -311,7 +353,7 @@ public:
 	lgn_by_2 = log2(n) / 2;
 	_2n_lgn  = n / lgn_by_2 + 1;
 
-	printf("n = %u, lgn/2 = %d, 2n/lgn = %d\n", n, lgn_by_2, _2n_lgn);
+	DPRINTF("n = %u, lgn/2 = %d, 2n/lgn = %d\n", n, lgn_by_2, _2n_lgn);
 	lt.initialize(lgn_by_2);
 
 	table_map.resize(_2n_lgn);
@@ -320,7 +362,7 @@ public:
 	for (uint_t i = 0; i < n; i += lgn_by_2) {
 	    uint_t max_in_block = euler[i];
 	    int bitmap = 1L;
-	    fprintf(stderr, "Sequence: (%u, ", euler[i]);
+	    DPRINTF("Sequence: (%u, ", euler[i]);
 	    for (int j = 1; j < lgn_by_2; ++j) {
 		int curr_level, prev_level;
 		uint_t value;
@@ -337,15 +379,16 @@ public:
 		const uint_t bit = (curr_level < prev_level);
 		bitmap |= (bit << j);
 		max_in_block = std::max(max_in_block, value);
-		fprintf(stderr, "%u, ", value);
+		DPRINTF("%u, ", value);
 	    }
 	    DPRINTF("), Bitmap: %s\n", bitmap_str(bitmap).c_str());
 	    table_map[i / lgn_by_2] = bitmap;
 	    reduced.push_back(max_in_block);
 	}
 
+        DPRINTF("reduced.size(): %u\n", reduced.size());
 	st.initialize(reduced);
-	cerr<<"initialize() completed"<<endl;
+	DCERR("initialize() completed"<<endl);
     }
 
     // qf & ql are indexes; both inclusive.
