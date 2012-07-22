@@ -168,7 +168,7 @@ namespace sparsetable {
                 pui_t one = st.query_max(i, j);
                 pui_t two = naive_query_max(v, i, j);
                 printf("query_max(%u, %u) == (%u, %u)\n", (uint_t)i, (uint_t)j, one.first, two.first);
-                assert(one.first == two.first);
+                assert_eq(one.first, two.first);
             }
         }
 

@@ -80,8 +80,8 @@ euler_tour(BinaryTreeNode *n,
 	   vui_t &output, /* Where the output is written. Should be empty */
 	   vui_t &levels, /* Where the level for each node is written. Should be empty */
 	   vui_t &mapping /* mapping stores representative
-	      indexes which maps from the original index to the index
-	      into the euler tour array, which is a +- RMQ */, 
+                             indexes which maps from the original index to the index
+                             into the euler tour array, which is a +- RMQ */, 
 	   vui_t &rev_mapping /* Reverse mapping to go from +-RMQ
 				 indexes to user provided indexes */, 
 	   int level = 1) {
@@ -313,7 +313,11 @@ class BenderRMQ {
      * within our re-written (using euler tour) structure).
      */
     vui_t mapping;
+
+    /* Stores the bitmask corresponding to a block of size (1/2)(lg n) */
     vui_t table_map;
+
+    /* Stores the mapping from +-RMQ indexes to actual indexes */
     vui_t rev_mapping;
 
     /* The real length of input that the user gave us */
@@ -423,6 +427,23 @@ public:
 
 	pui_t ret(0, 0);
 
+        /* Main logic:
+         *
+         * [1] If the query is restricted to a single block, then
+         * first_block_index == last_block_index, and we only need to
+         * do a bitmap based lookup.
+         *
+         * [2] If last_block_index - first_block_index == 1, then the
+         * query spans 2 blocks, and we do not need to lookup the
+         * Sparse Table to get the summary max.
+         *
+         * [3] In all other cases, we need to take the maximum of 3
+         * results, (a) the max in the suffix of the first block, (b)
+         * the max in the prefix of the last block, and (c) the max of
+         * all blocks between the first and the last block.
+         *
+         */
+
 	if (last_block_index - first_block_index > 1) {
 	    // We need to perform an inter-block query using the 'st'.
 	    ret = st.query_max(first_block_index + 1, last_block_index - 1);
@@ -445,14 +466,14 @@ public:
 
 	// Now perform an in-block query for the first and last
 	// blocks.
-	const uint_t f1 = qf % lgn_by_2;
-	const uint_t f2 = lgn_by_2-1;
+        const uint_t f1 = qf % lgn_by_2;
+        const uint_t f2 = lgn_by_2 - 1;
 
-	const uint_t l1 = 0;
-	const uint_t l2 = ql % lgn_by_2;
+        const uint_t l1 = 0;
+        const uint_t l2 = ql % lgn_by_2;
 
-	const uint_t bitmap1 = table_map[first_block_index];
-	const uint_t bitmap2 = table_map[last_block_index];
+        const uint_t bitmap1 = table_map[first_block_index];
+        const uint_t bitmap2 = table_map[last_block_index];
 
 	DPRINTF("bitmap1: %s, bitmap2: %s\n", bitmap_str(bitmap1).c_str(),
 		bitmap_str(bitmap2).c_str());

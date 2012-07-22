@@ -12,9 +12,17 @@
 
 using namespace std;
 
-#define NUM_ELEMS 4000000
-#define NUM_ITERATIONS 1000
+#if !defined NUM_ELEMS
+#define NUM_ELEMS 8000000
+#endif
+
+#if !defined NUM_ITERATIONS
+#define NUM_ITERATIONS 3000
+#endif
+
+#if !defined NUM_QUERIES
 #define NUM_QUERIES 10000
+#endif
 
 
 void
