@@ -37,12 +37,12 @@ public:
         this->len = elems.size();
         this->repr.clear();
 
-        cerr<<"len: "<<this->len<<endl;
+        DCERR("len: "<<this->len<<endl);
 
         const size_t ntables = log2(this->len) + 1;
         this->repr.resize(ntables);
 
-        cerr<<"ntables: "<<ntables<<endl;
+        DCERR("ntables: "<<ntables<<endl);
 
         this->repr[0].resize(this->len);
         for (size_t i = 0; i < this->len; ++i) {
@@ -66,7 +66,7 @@ public:
 	     */
             const size_t vsz = this->len - bs + 1;
 
-	    cerr<<"starting i: "<<i<<" bs: "<<bs<<endl;
+	    DCERR("starting i: "<<i<<" bs: "<<bs<<endl);
 
             this->repr[i].resize(vsz);
 
