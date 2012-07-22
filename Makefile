@@ -14,5 +14,9 @@ test:
 	$(CXX) -o tests/containers tests/containers.cpp -I . $(CXXFLAGS)
 	tests/containers
 
+perf:
+	$(CXX) -o tests/rmq_perf tests/rmq_perf.cpp -I . $(CXXFLAGS)
+	tests/rmq_perf
+
 clean:
 	rm mongoose.o lib-face tests/containers
