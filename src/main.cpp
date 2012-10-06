@@ -57,6 +57,7 @@ unsigned long nreq = 0;
 time_t started_at;
 bool ac_sorted = false;
 bool opt_show_help = false;
+bool opt_daemon = false;
 const char *ac_file = NULL;
 const char *port = "6767";
 const char *project_homepage_url = "https://github.com/duckduckgo/cpp-libface/";
@@ -705,6 +706,7 @@ show_usage(char *argv[]) {
     printf("-f, --file=PATH      Path of the file containing the phrases\n");
     printf("-p, --port=PORT      TCP port on which to start lib-face (default: 6767)\n");
     printf("-s, --sorted         If specified, the input file (PATH) is assumed to be sorted by phrase\n");
+    printf("-d, --daemon         Whether to run as daemon & write to syslog (default: not daemon)\n");
     printf("\n");
     printf("Please visit %s for more information.\n", project_homepage_url);
 }
@@ -719,11 +721,12 @@ parse_options(int argc, char *argv[]) {
             {"file", 1, 0, 'f'},
             {"port", 1, 0, 'p'},
             {"sorted", 0, 0, 's'},
+            {"daemon", 0, 0, 'd'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "f:p:sh",
+        c = getopt_long(argc, argv, "f:p:dsh",
                         long_options, &option_index);
 
         if (c == -1)
@@ -750,6 +753,10 @@ parse_options(int argc, char *argv[]) {
             opt_show_help = true;
             break;
 
+        case 'd':
+            opt_daemon = true;
+            break;
+                
         case '?':
             cerr<<"ERROR::Invalid option: "<<optopt<<endl;
             break;
@@ -767,7 +774,32 @@ main(int argc, char* argv[]) {
         show_usage(argv);
         return 0;
     }
-
+    
+    if(opt_daemon){
+        pid_t   pid, sid;
+        
+        pid = fork();
+        
+        if (pid < 0) {
+            exit(EXIT_FAILURE);
+        } else if (pid > 0) {
+            exit(EXIT_SUCCESS);
+        }
+        
+        umask(0);
+        
+        sid = setsid();
+        
+        if (sid < 0) {
+            exit(EXIT_FAILURE);
+        }
+        
+        if ((chdir("/")) < 0) {
+            exit(EXIT_FAILURE);
+        }
+        
+    }
+    
     struct mg_context *ctx;
     const char *options[] = {"listening_ports", port, NULL};
 
