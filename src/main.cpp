@@ -53,13 +53,14 @@ RMQ st;                         // An instance of the RMQ Data Structure
 char *if_mmap_addr = NULL;      // Pointer to the mmapped area of the file
 off_t if_length = 0;            // The length of the input file
 volatile bool building = false; // TRUE if the structure is being built
-unsigned long long nreq = 0;    // The total number of requests served till now
+unsigned long nreq = 0;         // The total number of requests served till now
 int line_limit = -1;            // The number of lines to import from the input file
 time_t started_at;              // When was the server started
 bool ac_sorted = false;         // Is the input sorted
 bool opt_show_help = false;     // Was --help requested?
 const char *ac_file = NULL;     // Path to the input file
 const char *port = "6767";      // The port number on which to start the HTTP server
+
 const char *project_homepage_url = "https://github.com/duckduckgo/cpp-libface/";
 
 enum {
