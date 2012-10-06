@@ -12,6 +12,8 @@
 #include <sys/mman.h>
 #include <assert.h>
 #include <fcntl.h>
+#include <syslog.h>
+#include <unistd.h>
 
 
 // Custom-includes
@@ -28,6 +30,7 @@
 #include <string>
 #include <fstream>
 #include <algorithm>
+#include <cstdarg>
 
 #if !defined NMAX
 #define NMAX 32
@@ -53,10 +56,11 @@ RMQ st;
 char *if_mmap_addr = NULL;
 size_t if_length = 0;
 bool building = false;
-unsigned long long nreq = 0;
+unsigned long nreq = 0;
 time_t started_at;
 bool ac_sorted = false;
 bool opt_show_help = false;
+bool opt_daemon = false;
 const char *ac_file = NULL;
 const char *port = "6767";
 const char *project_homepage_url = "https://github.com/duckduckgo/cpp-libface/";
@@ -82,7 +86,17 @@ const char *project_homepage_url = "https://github.com/duckduckgo/cpp-libface/";
 
 #define IMPORT_FILE_NOT_FOUND 1
 
-
+static void
+Log(int aLogLevel, const char* aFormat, ...){
+    va_list args;
+    va_start(args, aFormat);
+    if(opt_daemon){
+        vsyslog ( aLogLevel, aFormat, args);
+    }else{
+        vfprintf(stderr, aFormat, args);
+    }
+    va_end(args);
+}
 
 struct InputLineParser {
     int state;
@@ -555,7 +569,9 @@ handle_import(enum mg_event event,
     }
     else {
         print_HTTP_response(conn, 200, "OK");
-        mg_printf(conn, "Successfully added %d/%d records from \"%s\" in %d second(s)\n", 
+        Log(LOG_NOTICE, "Successfully added %d/%d records from \"%s\" in %d second(s)\n",
+            nadded, nlines, file.c_str(), time(NULL) - start_time);
+        mg_printf(conn, "Successfully added %d/%d records from \"%s\" in %d second(s)\n",
                   nadded, nlines, file.c_str(), time(NULL) - start_time);
     }
 
@@ -705,6 +721,7 @@ show_usage(char *argv[]) {
     printf("-f, --file=PATH      Path of the file containing the phrases\n");
     printf("-p, --port=PORT      TCP port on which to start lib-face (default: 6767)\n");
     printf("-s, --sorted         If specified, the input file (PATH) is assumed to be sorted by phrase\n");
+    printf("-d, --daemon         Whether to run as daemon & write to syslog (default: not daemon)\n");
     printf("\n");
     printf("Please visit %s for more information.\n", project_homepage_url);
 }
@@ -719,11 +736,12 @@ parse_options(int argc, char *argv[]) {
             {"file", 1, 0, 'f'},
             {"port", 1, 0, 'p'},
             {"sorted", 0, 0, 's'},
+            {"daemon", 0, 0, 'd'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "f:p:sh",
+        c = getopt_long(argc, argv, "f:p:dsh",
                         long_options, &option_index);
 
         if (c == -1)
@@ -750,6 +768,10 @@ parse_options(int argc, char *argv[]) {
             opt_show_help = true;
             break;
 
+        case 'd':
+            opt_daemon = true;
+            break;
+                
         case '?':
             cerr<<"ERROR::Invalid option: "<<optopt<<endl;
             break;
@@ -767,30 +789,55 @@ main(int argc, char* argv[]) {
         show_usage(argv);
         return 0;
     }
-
+    
+    if(opt_daemon){
+        pid_t   pid, sid;
+        
+        pid = fork();
+        
+        if (pid < 0) {
+            exit(EXIT_FAILURE);
+        } else if (pid > 0) {
+            exit(EXIT_SUCCESS);
+        }
+        
+        umask(0);
+        
+        sid = setsid();
+        
+        if (sid < 0) {
+            exit(EXIT_FAILURE);
+        }
+        
+        if ((chdir("/")) < 0) {
+            exit(EXIT_FAILURE);
+        }
+        
+    }
+    
     struct mg_context *ctx;
     const char *options[] = {"listening_ports", port, NULL};
 
     started_at = time(NULL);
 
-    cerr<<"INFO::Starting lib-face on port '"<<port<<"'\n";
+    Log(LOG_NOTICE, "INFO::Starting lib-face on port '%s' ( pid %lu )\n",port,(unsigned long) getpid());
 
     if (ac_file) {
         int nadded, nlines;
         const time_t start_time = time(NULL);
         int ret = do_import(ac_file, ac_sorted, minus_one, nadded, nlines);
         if (ret < 0) {
-            fprintf(stderr, "ERROR::Could not add lines in file '%s'\n", ac_file);
+            Log(LOG_ERR, "ERROR::Could not add lines in file '%s'\n", ac_file);
         }
         else {
-            fprintf(stderr, "INFO::Successfully added %d/%d records from \"%s\" in %d second(s)\n", 
+            Log(LOG_NOTICE, "INFO::Successfully added %d/%d records from \"%s\" in %d second(s)\n",
                     nadded, nlines, ac_file, (int)(time(NULL) - start_time));
         }
     }
 
     ctx = mg_start(&callback, NULL, options);
     if (!ctx) {
-        fprintf(stderr, "ERROR::Could not start the web server\n");
+        Log(LOG_ERR, "ERROR::Could not start the web server\n");
         return 1;
     }
 
