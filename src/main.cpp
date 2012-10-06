@@ -53,7 +53,7 @@ RMQ st;
 char *if_mmap_addr = NULL;
 size_t if_length = 0;
 bool building = false;
-unsigned long long nreq = 0;
+unsigned long nreq = 0;
 time_t started_at;
 bool ac_sorted = false;
 bool opt_show_help = false;
