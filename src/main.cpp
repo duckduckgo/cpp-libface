@@ -48,17 +48,17 @@
 
 
 
-PhraseMap pm;                // Phrase Map (usually a sorted array of strings)
-RMQ st;                      // An instance of the RMQ Data Structure
-char *if_mmap_addr = NULL;   // Pointer to the mmapped area of the file
-size_t if_length = 0;        // The length of the input file
-bool building = false;       // TRUE if the structure is being built
-unsigned long long nreq = 0; // The total number of requests served till now
-time_t started_at;           // When was the server started
-bool ac_sorted = false;      // Is the input sorted
-bool opt_show_help = false;  // Was --help requested?
-const char *ac_file = NULL;  // Path to the input file
-const char *port = "6767";   // The port number on which to start the HTTP server
+PhraseMap pm;                   // Phrase Map (usually a sorted array of strings)
+RMQ st;                         // An instance of the RMQ Data Structure
+char *if_mmap_addr = NULL;      // Pointer to the mmapped area of the file
+size_t if_length = 0;           // The length of the input file
+volatile bool building = false; // TRUE if the structure is being built
+unsigned long long nreq = 0;    // The total number of requests served till now
+time_t started_at;              // When was the server started
+bool ac_sorted = false;         // Is the input sorted
+bool opt_show_help = false;     // Was --help requested?
+const char *ac_file = NULL;     // Path to the input file
+const char *port = "6767";      // The port number on which to start the HTTP server
 const char *project_homepage_url = "https://github.com/duckduckgo/cpp-libface/";
 
 enum {
@@ -121,7 +121,7 @@ struct InputLineParser {
 
         while (this->buff[i]) {
             char ch = this->buff[i];
-            DCERR("State: "<<this->state<<", read: "<<ch<<"\n");
+            DCERR("["<<this->state<<":"<<ch<<"]");
 
             switch (this->state) {
             case ILP_BEFORE_NON_WS:
@@ -185,6 +185,7 @@ struct InputLineParser {
 
             };
         }
+        DCERR("\n");
         on_phrase(p_start, p_len);
         on_snippet(s_start, s_len);
     }
