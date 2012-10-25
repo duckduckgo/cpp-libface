@@ -2,13 +2,17 @@ CFLAGS=		-W -Wall -std=c99 -pedantic $(COPT)
 CXXFLAGS=       -Wall $(COPT)
 LINFLAGS=	-ldl -pthread
 
-all:
-	$(CC) -c deps/mongoose/mongoose.c -I deps/mongoose $(CFLAGS) -O2 -DNDEBUG
-	$(CXX) -o lib-face src/main.cpp mongoose.o -I . -I deps/mongoose $(CXXFLAGS) $(LINFLAGS) -O2 -DNDEBUG
+all: CFLAGS += -O2 -DNDEBUG
+all: CXXFLAGS += -O2 -DNDEBUG
+all: targets
 
-debug:
-	$(CC) -c deps/mongoose/mongoose.c -I deps/mongoose $(CFLAGS) -g
-	$(CXX) -o lib-face src/main.cpp mongoose.o -I . -I deps/mongoose $(CXXFLAGS) $(LINFLAGS) -g
+debug: CFLAGS += -g
+debug: CXXFLAGS += -g
+debug: targets
+
+targets:
+	$(CC) -c deps/mongoose/mongoose.c -I deps/mongoose $(CFLAGS)
+	$(CXX) -o lib-face src/main.cpp mongoose.o -I . -I deps/mongoose $(CXXFLAGS) $(LINFLAGS)
 
 test:
 	$(CXX) -o tests/containers tests/containers.cpp -I . $(CXXFLAGS)

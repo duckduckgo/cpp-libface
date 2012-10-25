@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <string.h>
+#include <assert.h>
 
 #if !defined RMQ
 #define RMQ SegmentTree
@@ -33,6 +34,9 @@ struct StringProxy {
     }
 
     operator std::string() const {
+        // Basic sanity checking. Make sure that this->len is in the
+        // range [0..64k].
+        assert(this->len >= 0 && this->len < 64000);
         return std::string(this->mem_base, this->len);
     }
 
