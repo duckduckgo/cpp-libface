@@ -51,7 +51,7 @@
 PhraseMap pm;                   // Phrase Map (usually a sorted array of strings)
 RMQ st;                         // An instance of the RMQ Data Structure
 char *if_mmap_addr = NULL;      // Pointer to the mmapped area of the file
-size_t if_length = 0;           // The length of the input file
+off_t if_length = 0;            // The length of the input file
 volatile bool building = false; // TRUE if the structure is being built
 unsigned long long nreq = 0;    // The total number of requests served till now
 time_t started_at;              // When was the server started
@@ -88,6 +88,7 @@ enum {
 };
 
 #define IMPORT_FILE_NOT_FOUND 1
+#define IMPORT_MUNMAP_FAILED  2
 
 
 
@@ -216,7 +217,7 @@ struct InputLineParser {
 };
 
 
-size_t
+off_t
 file_size(const char *path) {
     struct stat sbuf;
     int r = stat(path, &sbuf);
@@ -444,9 +445,6 @@ do_import(std::string file, int sorted, uint_t limit,
 
     int fd = open(file.c_str(), O_RDONLY);
 
-    // Potential race condition + not checking for return value
-    if_length = file_size(file.c_str());
-
     DCERR("handle_import::file:"<<file<<endl);
 
     if (!fin || !fd) {
@@ -458,14 +456,23 @@ do_import(std::string file, int sorted, uint_t limit,
         int foffset = 0;
 
         if (if_mmap_addr) {
-            munmap(if_mmap_addr, if_length);
+            int r = munmap(if_mmap_addr, if_length);
+            if (r < 0) {
+                perror("munmap");
+                building = false;
+                return -IMPORT_MUNMAP_FAILED;
+            }
         }
+
+        // Potential race condition + not checking for return value
+        if_length = file_size(file.c_str());
 
         // mmap() the input file in
         if_mmap_addr = (char*)mmap(NULL, if_length, PROT_READ, MAP_SHARED, fd, 0);
         if (!if_mmap_addr) {
             fclose(fin);
             close(fd);
+            building = false;
             return -IMPORT_FILE_NOT_FOUND;
         }
 
@@ -549,6 +556,12 @@ handle_import(enum mg_event event,
         switch (-ret) {
         case IMPORT_FILE_NOT_FOUND:
             print_HTTP_response(conn, 404, "Not Found");
+            mg_printf(conn, "The file '%s' was not found", file.c_str());
+            break;
+
+        case IMPORT_MUNMAP_FAILED:
+            print_HTTP_response(conn, 500, "Internal Server Error");
+            mg_printf(conn, "munmap(2) failed");
             break;
 
         default:
