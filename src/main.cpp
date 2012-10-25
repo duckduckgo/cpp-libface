@@ -48,50 +48,60 @@
 
 
 
-PhraseMap pm;
-RMQ st;
-char *if_mmap_addr = NULL;
-size_t if_length = 0;
-bool building = false;
-unsigned long long nreq = 0;
-time_t started_at;
-bool ac_sorted = false;
-bool opt_show_help = false;
-const char *ac_file = NULL;
-const char *port = "6767";
+PhraseMap pm;                // Phrase Map (usually a sorted array of strings)
+RMQ st;                      // An instance of the RMQ Data Structure
+char *if_mmap_addr = NULL;   // Pointer to the mmapped area of the file
+size_t if_length = 0;        // The length of the input file
+bool building = false;       // TRUE if the structure is being built
+unsigned long long nreq = 0; // The total number of requests served till now
+time_t started_at;           // When was the server started
+bool ac_sorted = false;      // Is the input sorted
+bool opt_show_help = false;  // Was --help requested?
+const char *ac_file = NULL;  // Path to the input file
+const char *port = "6767";   // The port number on which to start the HTTP server
 const char *project_homepage_url = "https://github.com/duckduckgo/cpp-libface/";
 
-// We are in a non-WS state
-#define ILP_BEFORE_NON_WS  0
-// We are parsing the weight (integer)
-#define ILP_WEIGHT         1
-// We are in the state after the weight but before the TAB character
-// separating the weight & the phrase
-#define ILP_BEFORE_PTAB    2
-// We are in the state after the TAB character and potentially before
-// the phrase starts (or at the phrase)
-#define ILP_AFTER_PTAB     3
-// The state parsing the phrase
-#define ILP_PHRASE         4
-// The state after the TAB character following the phrase (currently
-// unused)
-#define ILP_AFTER_STAB     5
-// The state in which we are parsing the snippet
-#define ILP_SNIPPET        6
+enum {
+    // We are in a non-WS state
+    ILP_BEFORE_NON_WS  = 0,
 
+    // We are parsing the weight (integer)
+    ILP_WEIGHT         = 1,
+
+    // We are in the state after the weight but before the TAB
+    // character separating the weight & the phrase
+    ILP_BEFORE_PTAB    = 2,
+
+    // We are in the state after the TAB character and potentially
+    // before the phrase starts (or at the phrase)
+    ILP_AFTER_PTAB     = 3,
+
+    // The state parsing the phrase
+    ILP_PHRASE         = 4,
+
+    // The state after the TAB character following the phrase
+    // (currently unused)
+    ILP_AFTER_STAB     = 5,
+
+    // The state in which we are parsing the snippet
+    ILP_SNIPPET        = 6
+};
 
 #define IMPORT_FILE_NOT_FOUND 1
 
 
 
 struct InputLineParser {
-    int state;
-    const char *mem_base, *buff;
-    size_t buff_offset;
-    int *pn;
-    std::string *pphrase;
+    int state;            // Current parsing state
+    const char *mem_base; // Base address of the mmapped file
+    const char *buff;     // A pointer to the current line to be parsed
+    size_t buff_offset;   // Offset of 'buff' [above] relative to the beginning of the file. Used to index into mem_base
+    int *pn;              // A pointer to any integral field being parsed
+    std::string *pphrase; // A pointer to a string field being parsed
+
     // The input file is mmap()ped in the process' address space.
-    StringProxy *psnippet_proxy;
+
+    StringProxy *psnippet_proxy; // The psnippet_proxy is a pointer to a Proxy String object that points to memory in the mmapped region
 
     InputLineParser(const char *_mem_base, size_t _bo, 
                     const char *_buff, int *_pn, 
@@ -102,10 +112,12 @@ struct InputLineParser {
 
     void
     start_parsing() {
-        int i = 0;
-        int n = 0;
-        const char *p_start = NULL, *s_start = NULL;
-        int p_len = 0, s_len = 0;
+        int i = 0;                  // The current record byte-offset.
+        int n = 0;                  // Temporary buffer for numeric (integer) fields.
+        const char *p_start = NULL; // Beginning of the phrase.
+        const char *s_start = NULL; // Beginning of the prefix.
+        int p_len = 0;              // Prefix Length.
+        int s_len = 0;              // Snippet length.
 
         while (this->buff[i]) {
             char ch = this->buff[i];
@@ -160,21 +172,10 @@ struct InputLineParser {
                     // start with a white-space that we wish to
                     // preserve.
                     // 
-                    // this->state = ILP_AFTER_STAB;
                     this->state = ILP_SNIPPET;
                     s_start = this->buff + i + 1;
                 }
                 ++i;
-                break;
-
-            case ILP_AFTER_STAB:
-                if (isspace(ch)) {
-                    this->state = ILP_SNIPPET;
-                    s_start = this->buff + i;
-                }
-                else {
-                    ++i;
-                }
                 break;
 
             case ILP_SNIPPET:
@@ -345,7 +346,7 @@ rich_suggestions_json_array(vp_t& suggestions) {
 
         std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
         ret += " { \"phrase\": \"" + i->phrase + "\", \"score\": " + uint_to_string(i->weight) + 
-            (snippet.empty() ? "" : ", \"snippet\": \"" + snippet + "\"") + "}" + trailer;
+            (snippet.empty() ? "" : ", \"snippet\": \"" + snippet + "\"") + " }" + trailer;
     }
     ret += "]";
     return ret;
