@@ -209,6 +209,9 @@ struct InputLineParser {
         if (len && this->psnippet_proxy) {
             const char *base = this->mem_base + this->buff_offset + 
                 (data - this->buff);
+            assert(base >= if_mmap_addr);
+            assert(base <= if_mmap_addr + if_length);
+            assert(base + len <= if_mmap_addr + if_length);
             DCERR("on_snippet::base: "<<(void*)base<<", len: "<<len<<"\n");
             this->psnippet_proxy->assign(base, len);
         }
