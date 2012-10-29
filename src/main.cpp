@@ -211,7 +211,7 @@ struct InputLineParser {
         if (len && this->psnippet_proxy) {
             const char *base = this->mem_base + this->buff_offset + 
                 (data - this->buff);
-            if (base < if_mmap_addr || base >= if_mmap_addr + if_length) {
+            if (base < if_mmap_addr || base + len > if_mmap_addr + if_length) {
                 fprintf(stderr, "base: %p, if_mmap_addr: %p, if_mmap_addr+if_length: %p\n", base, if_mmap_addr, if_mmap_addr + if_length);
                 assert(base >= if_mmap_addr);
                 assert(base <= if_mmap_addr + if_length);
