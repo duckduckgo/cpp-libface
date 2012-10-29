@@ -1,5 +1,5 @@
 CFLAGS=		-W -Wall -std=c99 -pedantic $(COPT)
-CXXFLAGS=       -Wall $(COPT)
+CXXFLAGS=       -Wall $(COPT) -D_FILE_OFFSET_BITS=64
 LINFLAGS=	-ldl -pthread
 
 all: CFLAGS += -O2 -DNDEBUG

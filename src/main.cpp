@@ -54,6 +54,7 @@ char *if_mmap_addr = NULL;      // Pointer to the mmapped area of the file
 off_t if_length = 0;            // The length of the input file
 volatile bool building = false; // TRUE if the structure is being built
 unsigned long long nreq = 0;    // The total number of requests served till now
+int line_limit = -1;            // The number of lines to import from the input file
 time_t started_at;              // When was the server started
 bool ac_sorted = false;         // Is the input sorted
 bool opt_show_help = false;     // Was --help requested?
@@ -87,9 +88,10 @@ enum {
     ILP_SNIPPET        = 6
 };
 
-#define IMPORT_FILE_NOT_FOUND 1
-#define IMPORT_MUNMAP_FAILED  2
-
+enum { IMPORT_FILE_NOT_FOUND = 1,
+       IMPORT_MUNMAP_FAILED  = 2,
+       IMPORT_MMAP_FAILED    = 3
+};
 
 
 struct InputLineParser {
@@ -209,9 +211,12 @@ struct InputLineParser {
         if (len && this->psnippet_proxy) {
             const char *base = this->mem_base + this->buff_offset + 
                 (data - this->buff);
-            assert(base >= if_mmap_addr);
-            assert(base <= if_mmap_addr + if_length);
-            assert(base + len <= if_mmap_addr + if_length);
+            if (base < if_mmap_addr || base >= if_mmap_addr + if_length) {
+                fprintf(stderr, "base: %p, if_mmap_addr: %p, if_mmap_addr+if_length: %p\n", base, if_mmap_addr, if_mmap_addr + if_length);
+                assert(base >= if_mmap_addr);
+                assert(base <= if_mmap_addr + if_length);
+                assert(base + len <= if_mmap_addr + if_length);
+            }
             DCERR("on_snippet::base: "<<(void*)base<<", len: "<<len<<"\n");
             this->psnippet_proxy->assign(base, len);
         }
@@ -233,6 +238,10 @@ file_size(const char *path) {
     return sbuf.st_size;
 }
 
+// In case the query string is longer than 1022 bytes, this function
+// returns an empty string. This can cause lib-face to return
+// arbitrary entries to the client. These entries are not complete
+// arbitrary, but are the globally top ranked phrases.
 std::string
 get_qs(const struct mg_request_info *request_info, std::string const& key) {
     char val[1024];
@@ -448,9 +457,9 @@ do_import(std::string file, int sorted, uint_t limit,
 
     int fd = open(file.c_str(), O_RDONLY);
 
-    DCERR("handle_import::file:"<<file<<endl);
+    DCERR("handle_import::file:" << file << "[fin: " << (!!fin) << ", fd: " << fd << "]" << endl);
 
-    if (!fin || !fd) {
+    if (!fin || fd == -1) {
         return -IMPORT_FILE_NOT_FOUND;
     }
     else {
@@ -472,11 +481,11 @@ do_import(std::string file, int sorted, uint_t limit,
 
         // mmap() the input file in
         if_mmap_addr = (char*)mmap(NULL, if_length, PROT_READ, MAP_SHARED, fd, 0);
-        if (!if_mmap_addr) {
-            fclose(fin);
-            close(fd);
+        if (if_mmap_addr == MAP_FAILED) {
+            if (fin) { fclose(fin); }
+            if (fd != -1) { close(fd); }
             building = false;
-            return -IMPORT_FILE_NOT_FOUND;
+            return -IMPORT_MMAP_FAILED;
         }
 
         pm.repr.clear();
@@ -565,6 +574,11 @@ handle_import(enum mg_event event,
         case IMPORT_MUNMAP_FAILED:
             print_HTTP_response(conn, 500, "Internal Server Error");
             mg_printf(conn, "munmap(2) failed");
+            break;
+
+        case IMPORT_MMAP_FAILED:
+            print_HTTP_response(conn, 500, "Internal Server Error");
+            mg_printf(conn, "mmap(2) failed");
             break;
 
         default:
@@ -722,6 +736,7 @@ show_usage(char *argv[]) {
     printf("-h, --help           This screen\n");
     printf("-f, --file=PATH      Path of the file containing the phrases\n");
     printf("-p, --port=PORT      TCP port on which to start lib-face (default: 6767)\n");
+    printf("-l, --limit=LIMIT    Load only the first LIMIT lines from PATH (default: -1 [unlimited])\n");
     printf("-s, --sorted         If specified, the input file (PATH) is assumed to be sorted by phrase\n");
     printf("\n");
     printf("Please visit %s for more information.\n", project_homepage_url);
@@ -736,12 +751,13 @@ parse_options(int argc, char *argv[]) {
         static struct option long_options[] = {
             {"file", 1, 0, 'f'},
             {"port", 1, 0, 'p'},
+            {"limit", 1, 0, 'l'},
             {"sorted", 0, 0, 's'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "f:p:sh",
+        c = getopt_long(argc, argv, "f:p:l:sh",
                         long_options, &option_index);
 
         if (c == -1)
@@ -766,6 +782,11 @@ parse_options(int argc, char *argv[]) {
           
         case 'h':
             opt_show_help = true;
+            break;
+
+        case 'l':
+            line_limit = atoi(optarg);
+            DCERR("Limit # of lines to: " << line_limit << endl);
             break;
 
         case '?':
@@ -796,9 +817,25 @@ main(int argc, char* argv[]) {
     if (ac_file) {
         int nadded, nlines;
         const time_t start_time = time(NULL);
-        int ret = do_import(ac_file, ac_sorted, minus_one, nadded, nlines);
+        int ret = do_import(ac_file, ac_sorted, line_limit, nadded, nlines);
         if (ret < 0) {
-            fprintf(stderr, "ERROR::Could not add lines in file '%s'\n", ac_file);
+            switch (-ret) {
+            case IMPORT_FILE_NOT_FOUND:
+                fprintf(stderr, "The file '%s' was not found\n", ac_file);
+                break;
+
+            case IMPORT_MUNMAP_FAILED:
+                fprintf(stderr, "munmap(2) on file '%s' failed\n", ac_file);
+                break;
+
+            case IMPORT_MMAP_FAILED:
+                fprintf(stderr, "mmap(2) on file '%s' failed\n", ac_file);
+                break;
+
+            default:
+                cerr<<"ERROR::Unknown error: "<<ret<<endl;
+            }
+            return 1;
         }
         else {
             fprintf(stderr, "INFO::Successfully added %d/%d records from \"%s\" in %d second(s)\n", 
