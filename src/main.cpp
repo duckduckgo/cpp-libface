@@ -446,6 +446,28 @@ is_valid_cb(std::string const& cb) {
     return true;
 }
 
+bool is_EOF(FILE *pf) { return feof(pf); }
+bool is_EOF(std::ifstream fin) { return !!fin; }
+
+void get_line(FILE *pf, char *buff, int buff_len, int &read_len) {
+    char *got = fgets(buff, INPUT_LINE_SIZE, pf);
+    if (!got) {
+        read_len = -1;
+        return;
+    }
+    read_len = strlen(buff);
+    if (read_len > 0 && buff[read_len - 1] == '\n') {
+        buff[read_len - 1] = '\0';
+    }
+}
+
+void get_line(std::ifstream fin, char *buff, int buff_len, int &read_len) {
+    fin.getline(buff, buff_len);
+    read_len = fin.gcount();
+    buff[INPUT_LINE_SIZE - 1] = '\0';
+}
+
+
 int
 do_import(std::string file, int sorted, uint_t limit, 
           int &rnadded, int &rnlines) {
@@ -494,30 +516,14 @@ do_import(std::string file, int sorted, uint_t limit,
         pm.repr.clear();
         char buff[INPUT_LINE_SIZE];
 
-        while (
-#if defined USE_CXX_IO
-               fin
-#else
-            !feof(fin)
-#endif
-               && limit--) {
-
+        while (!is_EOF(fin) && limit--) {
             buff[0] = '\0';
 
-#if defined USE_CXX_IO
-            fin.getline(buff, INPUT_LINE_SIZE);
-            const int llen = fin.gcount();
-            buff[INPUT_LINE_SIZE - 1] = '\0';
-#else
-            char *got = fgets(buff, INPUT_LINE_SIZE, fin);
-            if (!got) {
+            int llen = -1;
+            get_line(fin, buff, INPUT_LINE_SIZE, llen);
+            if (llen == -1) {
                 break;
             }
-            const int llen = strlen(buff);
-            if (llen && buff[llen-1] == '\n') {
-                buff[llen-1] = '\0';
-            }
-#endif
 
             ++nlines;
 
