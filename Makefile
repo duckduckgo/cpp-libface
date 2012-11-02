@@ -10,9 +10,13 @@ debug: CFLAGS += -g
 debug: CXXFLAGS += -g
 debug: targets
 
-targets:
-	$(CC) -c deps/mongoose/mongoose.c -I deps/mongoose $(CFLAGS)
+targets: lib-face
+
+lib-face: mongoose.o src/main.cpp
 	$(CXX) -o lib-face src/main.cpp mongoose.o -I . -I deps/mongoose $(CXXFLAGS) $(LINFLAGS)
+
+mongoose.o: deps/mongoose/mongoose.h deps/mongoose/mongoose.c
+	$(CC) -o mongoose.o -c deps/mongoose/mongoose.c -I deps/mongoose $(CFLAGS)
 
 test:
 	$(CXX) -o tests/containers tests/containers.cpp -I . $(CXXFLAGS)
@@ -23,4 +27,4 @@ perf:
 	tests/rmq_perf
 
 clean:
-	rm mongoose.o lib-face tests/containers
+	rm -f mongoose.o lib-face tests/containers tests/rmq_perf
