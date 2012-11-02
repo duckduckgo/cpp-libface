@@ -460,6 +460,7 @@ do_import(std::string file, int sorted, uint_t limit,
     DCERR("handle_import::file:" << file << "[fin: " << (!!fin) << ", fd: " << fd << "]" << endl);
 
     if (!fin || fd == -1) {
+        perror("fopen");
         return -IMPORT_FILE_NOT_FOUND;
     }
     else {
@@ -482,6 +483,8 @@ do_import(std::string file, int sorted, uint_t limit,
         // mmap() the input file in
         if_mmap_addr = (char*)mmap(NULL, if_length, PROT_READ, MAP_SHARED, fd, 0);
         if (if_mmap_addr == MAP_FAILED) {
+            fprintf(stderr, "length: %llu, fd: %d\n", if_length, fd);
+            perror("mmap");
             if (fin) { fclose(fin); }
             if (fd != -1) { close(fd); }
             building = false;
