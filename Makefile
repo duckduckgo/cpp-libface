@@ -5,27 +5,37 @@ INCDEPS=        include/segtree.hpp include/sparsetable.hpp include/benderrmq.hp
                 include/phrase_map.hpp include/suggest.hpp include/types.hpp \
                 include/utils.hpp include/httpserver.hpp
 INCDIRS=        -I . -I deps
-OBJDEPS=        src/httpserver.o deps/libuv/libuv.a deps/http-parser/http_parser.o
+OBJDEPS=        src/httpserver.o deps/libuv/libuv.a
 
-all: CFLAGS += -O2 -DNDEBUG
+ifeq "$(findstring debug,$(MAKECMDGOALS))" ""
+OBJDEPS += deps/http-parser/http_parser.o
+else
+OBJDEPS += deps/http-parser/http_parser_g.o
+endif
+
+.PHONY: all clean debug test perf
+
+all: CFLAGS   += -O2 -DNDEBUG
 all: CXXFLAGS += -O2 -DNDEBUG
 all: targets
 
-debug: CFLAGS += -g
+debug: CFLAGS   += -g
 debug: CXXFLAGS += -g
 debug: targets
 
 targets: lib-face
 
 lib-face: src/main.cpp $(OBJDEPS) $(INCDEPS)
-	$(CXX) -o lib-face src/main.cpp $(OBJDEPS) \
-	$(INCDIRS) $(CXXFLAGS) $(LINKFLAGS)
+	$(CXX) -o lib-face src/main.cpp $(OBJDEPS) $(INCDIRS) $(CXXFLAGS) $(LINKFLAGS)
 
 src/httpserver.o: src/httpserver.cpp include/httpserver.hpp
 	$(CXX) -o src/httpserver.o -c src/httpserver.cpp $(INCDIRS)
 
 deps/libuv/libuv.a:
-	$(MAKE) -C deps/libuv
+	$(MAKE) -C deps/libuv $(HPFLAGS)
+
+deps/http-parser/http_parser_g.o:
+	$(MAKE) -C deps/http-parser http_parser_g.o
 
 deps/http-parser/http_parser.o:
 	$(MAKE) -C deps/http-parser http_parser.o
