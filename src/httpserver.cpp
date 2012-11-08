@@ -1,4 +1,5 @@
 #include <include/httpserver.hpp>
+#include <include/utils.hpp>
 
 #define CHECK(r, msg)                                           \
     if (r) {                                                    \
@@ -7,9 +8,6 @@
         exit(1);                                                \
     }
 #define UVERR(err, msg) fprintf(stderr, "%s: %s\n", msg, uv_strerror(err))
-#define LOG(msg) puts(msg);
-#define LOGF(fmt, params...) printf(fmt "\n", params);
-#define LOG_ERROR(msg) puts(msg);
 
 static uv_loop_t* uv_loop;
 static uv_tcp_t server;
@@ -63,10 +61,8 @@ void write_response(client_t *client,
 }
 
 void on_close(uv_handle_t* handle) {
+    DCERR("Connection Closed\n");
     client_t* client = (client_t*) handle->data;
-
-    LOGF("[ ] connection closed%s", "");
-
     delete client;
 }
 
@@ -85,9 +81,8 @@ void on_read(uv_stream_t* tcp, ssize_t nread, uv_buf_t buf) {
 
     if (nread >= 0) {
         parsed = http_parser_execute(&client->parser, &parser_settings, buf.base, nread);
-        LOGF("parsed: %d, nread:%d\n", parsed, nread);
         if (parsed < nread) {
-            LOG_ERROR("parse error");
+            DPRINTF("parse error::nread:%d, parsed: %d\n", nread, parsed);
             uv_close((uv_handle_t*) &client->handle, on_close);
         }
     } else {
@@ -101,15 +96,17 @@ void on_read(uv_stream_t* tcp, ssize_t nread, uv_buf_t buf) {
 }
 
 void on_connect(uv_stream_t* server_handle, int status) {
-    CHECK(status, "connect");
-
-    int r;
-
+    if (status != 0) {
+        uv_err_t err = uv_last_error(uv_loop);
+        UVERR(err, "connect");
+        return;
+    }
     assert((uv_tcp_t*)server_handle == &server);
 
+    int r;
     client_t* client = new client_t;
 
-    LOGF("[ %s] new connection", "");
+    DCERR("New Connection\n");
 
     uv_tcp_init(uv_loop, &client->handle);
     http_parser_init(&client->parser, HTTP_REQUEST);
@@ -121,15 +118,17 @@ void on_connect(uv_stream_t* server_handle, int status) {
     CHECK(r, "accept");
 
     uv_stream_t *pstrm = (uv_stream_t*)&client->handle;
-    fprintf(stderr, "pstrm: %p, pstrm->type: %d\n", pstrm, pstrm->type);
-
     uv_read_start((uv_stream_t*)&client->handle, on_alloc, on_read);
 }
 
 void after_write(uv_write_t* req, int status) {
-    CHECK(status, "write");
+    if (status != 0) {
+        uv_err_t err = uv_last_error(uv_loop);
+        UVERR(err, "write");
+        uv_close((uv_handle_t*)req->handle, on_close);
+        return;
+    }
 
-    // uv_close((uv_handle_t*)req->handle, on_close);
     client_t *client = (client_t*)(req->handle->data);
     uv_stream_t *pstrm = (uv_stream_t*)(&client->handle);
     fprintf(stderr, "[after_write] pstrm: %p, pstrm->type: %d\n", pstrm, pstrm->type);
@@ -187,7 +186,7 @@ void parse_URL(std::string const &url_str, parsed_url_t &uout) {
 
 int on_url(http_parser *parser, const char *data, size_t len) {
     client_t* client = (client_t*) parser->data;
-    LOGF("Adding '%s' to URL\n", std::string(data, len).c_str());
+    DPRINTF("Adding '%s' to URL\n", std::string(data, len).c_str());
     client->url.append(data, len);
     return 0;
 }
@@ -195,7 +194,7 @@ int on_url(http_parser *parser, const char *data, size_t len) {
 int on_message_complete(http_parser* parser) {
     client_t* client = (client_t*) parser->data;
   
-    LOGF("[ %s] http message parsed", "");
+    DCERR("http message parsed\n");
 
     uv_stream_t *pstrm = (uv_stream_t*)(&client->handle);
 

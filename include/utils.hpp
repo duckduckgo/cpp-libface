@@ -1,6 +1,7 @@
 #if !defined LIBFACE_UTILS_HPP
 #define LIBFACE_UTILS_HPP
 
+#include <iostream>
 #include <vector>
 #include <utility>
 #include <ostream>
@@ -13,7 +14,7 @@
 #define DCERR(X)
 #define DPRINTF(ARGS...)
 #else
-#define DCERR(X) cerr<<X;
+#define DCERR(X) std::cerr<<X;
 #define DPRINTF(ARGS...) fprintf(stderr, ARGS);
 #endif
 
@@ -23,7 +24,7 @@
 #define assert_eq(X,Y) if (!((X)==(Y))) { fprintf(stderr, "%d == %d FAILED\n", (X), (Y)); assert((X)==(Y)); }
 #define assert_ne(X,Y) if (!((X)!=(Y))) { fprintf(stderr, "%d != %d FAILED\n", (X), (Y)); assert((X)!=(Y)); }
 
-uint_t log2(uint_t n) {
+inline uint_t log2(uint_t n) {
     uint_t lg2 = 0;
     while (n > 1) {
         n /= 2;
@@ -50,7 +51,7 @@ operator<<(std::ostream& out, std::pair<T, U> const& p) {
     return out;
 }
 
-std::ostream&
+inline std::ostream&
 operator<<(std::ostream& out, phrase_t const& p) {
     out<<"("<<p.phrase<<", "<<p.weight<<")";
     return out;
