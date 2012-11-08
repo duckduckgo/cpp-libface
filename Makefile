@@ -1,9 +1,11 @@
 CFLAGS=		-W -Wall -std=c99 -pedantic $(COPT)
 CXXFLAGS=       -Wall $(COPT) -D_FILE_OFFSET_BITS=64
-LINFLAGS=	-ldl -pthread
+LINKFLAGS=	-lm -lrt -pthread
 INCDEPS=        include/segtree.hpp include/sparsetable.hpp include/benderrmq.hpp \
                 include/phrase_map.hpp include/suggest.hpp include/types.hpp \
-                include/utils.hpp
+                include/utils.hpp include/httpserver.hpp
+INCDIRS=        -I . -I deps
+OBJDEPS=        src/httpserver.o deps/libuv/libuv.a deps/http-parser/http_parser.o
 
 all: CFLAGS += -O2 -DNDEBUG
 all: CXXFLAGS += -O2 -DNDEBUG
@@ -15,11 +17,18 @@ debug: targets
 
 targets: lib-face
 
-lib-face: mongoose.o src/main.cpp $(INCDEPS)
-	$(CXX) -o lib-face src/main.cpp mongoose.o -I . -I deps/mongoose $(CXXFLAGS) $(LINFLAGS)
+lib-face: src/main.cpp $(OBJDEPS) $(INCDEPS)
+	$(CXX) -o lib-face src/main.cpp $(OBJDEPS) \
+	$(INCDIRS) $(CXXFLAGS) $(LINKFLAGS)
 
-mongoose.o: deps/mongoose/mongoose.h deps/mongoose/mongoose.c
-	$(CC) -o mongoose.o -c deps/mongoose/mongoose.c -I deps/mongoose $(CFLAGS)
+src/httpserver.o: src/httpserver.cpp include/httpserver.hpp
+	$(CXX) -o src/httpserver.o -c src/httpserver.cpp $(INCDIRS)
+
+deps/libuv/libuv.a:
+	$(MAKE) -C deps/libuv
+
+deps/http-parser/http_parser.o:
+	$(MAKE) -C deps/http-parser http_parser.o
 
 test:
 	$(CXX) -o tests/containers tests/containers.cpp -I . $(CXXFLAGS)
@@ -30,4 +39,6 @@ perf:
 	tests/rmq_perf
 
 clean:
-	rm -f mongoose.o lib-face tests/containers tests/rmq_perf
+	$(MAKE) -C deps/libuv clean
+	$(MAKE) -C deps/http-parser clean
+	rm -f lib-face tests/containers tests/rmq_perf src/httpserver.o
