@@ -9,18 +9,22 @@ function print_stats() {
 
 function main() {
     var opts = {
-	host: 'localhost', 
-	port: 6767, 
-	path: '/face/suggest/?q=h&n=10'
+	host: 'localhost',
+	port: 6767,
+	path: '/face/suggest/?q=h&n=10',
+        headers: { "Connection": "Keep-alive" }
     };
     var req;
 
     function req_handler(res) {
 	++ctr;
-	req = http.get(opts, req_handler);
+	http.get(opts, req_handler);
     }
 
-    req = http.get(opts, req_handler);
+    var i;
+    for (i = 0; i < 50; ++i) {
+        http.get(opts, req_handler);
+    }
 
     setInterval(print_stats, 1000);
 }
