@@ -9,14 +9,16 @@
     }
 #define UVERR(err, msg) fprintf(stderr, "%s: %s\n", msg, uv_strerror(err))
 
-static uv_loop_t* uv_loop;
-static uv_tcp_t server;
-static http_parser_settings parser_settings;
-static request_callback_t request_callback = NULL;
-static std::list<client_t*> connected_clients;
-static const int MAX_CONNECTED_CLIENTS = 900;
-static int nconnected_clients = 0;
-static std::list<client_t*> empty_list; // Used to move nodes around in O(1) time by move_to_back().
+static const size_t MAX_CONNECTED_CLIENTS = 900;
+static const size_t MAX_URL_SIZE          = 2048;
+
+static uv_loop_t* uv_loop;                          // UV-event-loop pointer
+static uv_tcp_t server;                             // Global TCP server
+static http_parser_settings parser_settings;        // Global parser settings
+static request_callback_t request_callback = NULL;  // The global request callback to invoke
+static std::list<client_t*> connected_clients;      // The LRU list of connected clients. Front of the list is the least recently active client connection
+static size_t nconnected_clients = 0;               // The # of currently connected clients
+static std::list<client_t*> empty_list;             // Used to move nodes around in O(1) time by move_to_back()
 
 // Move element pointed to by 'iter' to the end of the list
 // 'l'. 'iter' MUST be a member of 'l'.
@@ -221,12 +223,17 @@ int on_url(http_parser *parser, const char *data, size_t len) {
     DPRINTF("Adding '%s' to URL\n", std::string(data, len).c_str());
     client->url.append(data, len);
     DPRINTF("URL is now: %s\n", client->url.c_str());
+    if (client->url.size() > MAX_URL_SIZE) {
+        // An obviously buggy request.
+        close_connection(client);
+        return 1;
+    }
     return 0;
 }
 
 int on_message_complete(http_parser* parser) {
     client_t* client = (client_t*) parser->data;
-  
+
     DCERR("http message parsed\n");
 
     uv_stream_t *pstrm = (uv_stream_t*)(&client->handle);
@@ -238,6 +245,8 @@ int on_message_complete(http_parser* parser) {
 
     // Invoke callback.
     request_callback(client);
+
+    // return 1 - stops parsing by the http_parser.
     return 1;
 }
 
