@@ -114,11 +114,13 @@ void on_read(uv_stream_t* tcp, ssize_t nread, uv_buf_t buf) {
             close_connection(client);
         }
     } else if (nread < 0) {
+        // Always close the connection on error.
+        // https://groups.google.com/forum/?fromgroups=#!topic/libuv/IG7tTbf6Zmg
         uv_err_t err = uv_last_error(uv_loop);
         if (err.code != UV_EOF) {
             UVERR(err, "read");
-            close_connection(client);
         }
+        close_connection(client);
     }
 
     free(buf.base);
