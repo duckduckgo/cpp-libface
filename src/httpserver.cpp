@@ -113,7 +113,7 @@ void on_read(uv_stream_t* tcp, ssize_t nread, uv_buf_t buf) {
             DPRINTF("parse error::nread:%d, parsed: %d\n", nread, parsed);
             close_connection(client);
         }
-    } else {
+    } else if (nread < 0) {
         uv_err_t err = uv_last_error(uv_loop);
         if (err.code != UV_EOF) {
             UVERR(err, "read");
