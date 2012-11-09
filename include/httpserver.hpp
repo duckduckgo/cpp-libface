@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <vector>
+#include <list>
 #include <map>
 #include <string>
 #include <sstream>
@@ -19,6 +20,7 @@ struct client_t {
     http_parser parser;
     uv_write_t write_req;
     std::vector<std::string> resstrs;
+    std::list<client_t*>::iterator cciter;
     std::string url;
 };
 

@@ -13,6 +13,9 @@ static uv_loop_t* uv_loop;
 static uv_tcp_t server;
 static http_parser_settings parser_settings;
 static request_callback_t request_callback = NULL;
+static std::list<client_t*> connected_clients;
+static const int MAX_CONNECTED_CLIENTS = 900;
+static int nconnected_clients = 0;
 
 void build_HTTP_response_header(std::string &response_header,
                                 int http_major, int http_minor,
@@ -26,6 +29,7 @@ void build_HTTP_response_header(std::string &response_header,
     os<<buff;
     sprintf(buff, "%d", body.size());
     headers["Content-Length"] = buff;
+    headers["Connection"]     = "Keep-alive";
     for (headers_t::const_iterator i = headers.begin();
          i != headers.end(); ++i) {
         os<<i->first<<": "<<i->second<<"\r\n";
@@ -60,6 +64,13 @@ void write_response(client_t *client,
              resbuf, 2, after_write);
 }
 
+void close_connection(client_t *client) {
+    connected_clients.erase(client->cciter);
+    client->cciter = connected_clients.end();
+    --nconnected_clients;
+    uv_close((uv_handle_t*) &client->handle, on_close);
+}
+
 void on_close(uv_handle_t* handle) {
     DCERR("Connection Closed\n");
     client_t* client = (client_t*) handle->data;
@@ -75,20 +86,20 @@ uv_buf_t on_alloc(uv_handle_t* client, size_t suggested_size) {
 }
 
 void on_read(uv_stream_t* tcp, ssize_t nread, uv_buf_t buf) {
-    size_t parsed;
-
+    ssize_t parsed;
     client_t* client = (client_t*) tcp->data;
 
-    if (nread >= 0) {
+    if (nread > 0) {
         parsed = http_parser_execute(&client->parser, &parser_settings, buf.base, nread);
         if (parsed < nread) {
             DPRINTF("parse error::nread:%d, parsed: %d\n", nread, parsed);
-            uv_close((uv_handle_t*) &client->handle, on_close);
+            close_connection(client);
         }
     } else {
         uv_err_t err = uv_last_error(uv_loop);
         if (err.code != UV_EOF) {
             UVERR(err, "read");
+            close_connection(client);
         }
     }
 
@@ -106,37 +117,47 @@ void on_connect(uv_stream_t* server_handle, int status) {
     int r;
     client_t* client = new client_t;
 
-    DCERR("New Connection\n");
+    ++nconnected_clients;
+    DCERR("New Connection::nconnected_clients: " << nconnected_clients << "\n");
 
     uv_tcp_init(uv_loop, &client->handle);
     http_parser_init(&client->parser, HTTP_REQUEST);
 
     client->parser.data = client;
     client->handle.data = client;
+    client->cciter = connected_clients.insert(connected_clients.end(), client);
+
+    if (nconnected_clients > MAX_CONNECTED_CLIENTS) {
+        // Close the oldest connected.
+        DCERR("Calling close_connection() on first socket\n");
+        close_connection(connected_clients.front());
+    }
 
     r = uv_accept(server_handle, (uv_stream_t*)&client->handle);
     CHECK(r, "accept");
 
     uv_stream_t *pstrm = (uv_stream_t*)&client->handle;
-    uv_read_start((uv_stream_t*)&client->handle, on_alloc, on_read);
+    uv_read_start(pstrm, on_alloc, on_read);
 }
 
 void after_write(uv_write_t* req, int status) {
+    client_t *client = (client_t*)(req->handle->data);
+    uv_stream_t *pstrm = (uv_stream_t*)(&client->handle);
+
     if (status != 0) {
         uv_err_t err = uv_last_error(uv_loop);
         UVERR(err, "write");
-        uv_close((uv_handle_t*)req->handle, on_close);
+        close_connection(client);
         return;
     }
 
-    client_t *client = (client_t*)(req->handle->data);
-    uv_stream_t *pstrm = (uv_stream_t*)(&client->handle);
-    fprintf(stderr, "[after_write] pstrm: %p, pstrm->type: %d\n", pstrm, pstrm->type);
-
     // Free up all the buffers passed to uv_write().
     client->resstrs.clear();
+    client->url.clear();
 
     http_parser_init(&client->parser, HTTP_REQUEST);
+    client->parser.data = client;
+
     uv_read_start(pstrm, on_alloc, on_read);
 }
 
@@ -188,6 +209,7 @@ int on_url(http_parser *parser, const char *data, size_t len) {
     client_t* client = (client_t*) parser->data;
     DPRINTF("Adding '%s' to URL\n", std::string(data, len).c_str());
     client->url.append(data, len);
+    DPRINTF("URL is now: %s\n", client->url.c_str());
     return 0;
 }
 
@@ -202,9 +224,6 @@ int on_message_complete(http_parser* parser) {
 
     // Invoke callback.
     request_callback(client);
-
-    fprintf(stderr, "[on_message_complete] pstrm: %p, pstrm->type: %d\n", pstrm, pstrm->type);
-
     return 1;
 }
 

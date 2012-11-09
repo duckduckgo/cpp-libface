@@ -674,7 +674,7 @@ static void handle_stats(client_t *client, parsed_url_t &url) {
         b += sprintf(b, "Data store size: %d entries\n", pm.repr.size());
     }
     b += sprintf(b, "Memory usage: %d MiB\n", get_memory_usage(getpid())/1024);
-    body = b;
+    body = buff;
     write_response(client, 200, "OK", headers, body);
 }
 

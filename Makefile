@@ -29,7 +29,7 @@ lib-face: src/main.cpp $(OBJDEPS) $(INCDEPS)
 	$(CXX) -o lib-face src/main.cpp $(OBJDEPS) $(INCDIRS) $(CXXFLAGS) $(LINKFLAGS)
 
 src/httpserver.o: src/httpserver.cpp include/httpserver.hpp
-	$(CXX) -o src/httpserver.o -c src/httpserver.cpp $(INCDIRS)
+	$(CXX) -o src/httpserver.o -c src/httpserver.cpp $(INCDIRS) $(CXXFLAGS)
 
 deps/libuv/libuv.a:
 	$(MAKE) -C deps/libuv $(HPFLAGS)
