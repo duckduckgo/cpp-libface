@@ -20,6 +20,11 @@ static std::list<client_t*> connected_clients;      // The LRU list of connected
 static size_t nconnected_clients = 0;               // The # of currently connected clients
 static std::list<client_t*> empty_list;             // Used to move nodes around in O(1) time by move_to_back()
 
+enum {
+    HTTP_PARSER_CONTINUE_PARSING = 0,
+    HTTP_PARSER_STOP_PARSING     = 1
+};
+
 // Move element pointed to by 'iter' to the end of the list
 // 'l'. 'iter' MUST be a member of 'l'.
 void move_to_back(std::list<client_t*> &l, std::list<client_t*>::iterator iter) {
@@ -226,9 +231,9 @@ int on_url(http_parser *parser, const char *data, size_t len) {
     if (client->url.size() > MAX_URL_SIZE) {
         // An obviously buggy request.
         close_connection(client);
-        return 1;
+        return HTTP_PARSER_STOP_PARSING;
     }
-    return 0;
+    return HTTP_PARSER_CONTINUE_PARSING;
 }
 
 int on_message_complete(http_parser* parser) {
@@ -238,16 +243,17 @@ int on_message_complete(http_parser* parser) {
 
     uv_stream_t *pstrm = (uv_stream_t*)(&client->handle);
 
+    // Stop reading (to support request pipelining in HTTP/1.1).
     uv_read_stop(pstrm);
 
-    // Move to back.
+    // Move this connection to the back of the LRU list (front being
+    // the least recently accessed connection).
     move_to_back(connected_clients, client->cciter);
 
     // Invoke callback.
     request_callback(client);
 
-    // return 1 - stops parsing by the http_parser.
-    return 1;
+    return HTTP_PARSER_STOP_PARSING;
 }
 
 int httpserver_start(request_callback_t rcb, const char *ip, int port) {
