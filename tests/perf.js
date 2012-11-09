@@ -22,7 +22,12 @@ function main() {
     }
 
     var i;
-    for (i = 0; i < 50; ++i) {
+
+    // If we set MAX to anything > 5 (say 50), that ensures that the
+    // already open socket is used by the http agent, and req/sec goes
+    // up from 600 to 10000!!
+    var MAX = 1;
+    for (i = 0; i < MAX; ++i) {
         http.get(opts, req_handler);
     }
 
