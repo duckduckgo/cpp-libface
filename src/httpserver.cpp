@@ -16,6 +16,16 @@ static request_callback_t request_callback = NULL;
 static std::list<client_t*> connected_clients;
 static const int MAX_CONNECTED_CLIENTS = 900;
 static int nconnected_clients = 0;
+static std::list<client_t*> empty_list; // Used to move nodes around in O(1) time by move_to_back().
+
+// Move element pointed to by 'iter' to the end of the list
+// 'l'. 'iter' MUST be a member of 'l'.
+void move_to_back(std::list<client_t*> &l, std::list<client_t*>::iterator iter) {
+    assert(empty_list.empty());
+    assert(!l.empty());
+    empty_list.splice(empty_list.end(), l, iter);
+    l.splice(l.end(), empty_list, empty_list.begin());
+}
 
 void build_HTTP_response_header(std::string &response_header,
                                 int http_major, int http_minor,
@@ -25,12 +35,13 @@ void build_HTTP_response_header(std::string &response_header,
     response_header.clear();
     std::ostringstream os;
     char buff[2048];
+    // Ensure that status_str is small enough that everything fits in under 2048 bytes.
     sprintf(buff, "HTTP/%d.%d %d %s\r\n", http_major, http_minor, status_code, status_str);
     os<<buff;
     sprintf(buff, "%d", body.size());
     headers["Content-Length"] = buff;
     headers["Connection"]     = "Keep-alive";
-    for (headers_t::const_iterator i = headers.begin();
+    for (headers_t::iterator i = headers.begin();
          i != headers.end(); ++i) {
         os<<i->first<<": "<<i->second<<"\r\n";
     }
@@ -168,7 +179,7 @@ void parse_query_string(std::string &qstr, query_strings_t &query) {
     for (size_t i = 0; i < qstr.size(); ++i) {
         char ch = qstr[i];
         if (ch == '&') {
-            query[key] = value;
+            query[key].swap(value);
             key.clear();
             value.clear();
             parsing_key = true;
@@ -183,7 +194,7 @@ void parse_query_string(std::string &qstr, query_strings_t &query) {
         }
     }
     if (!key.empty()) {
-        query[key] = value;
+        query[key].swap(value);
     }
 }
 
@@ -221,6 +232,9 @@ int on_message_complete(http_parser* parser) {
     uv_stream_t *pstrm = (uv_stream_t*)(&client->handle);
 
     uv_read_stop(pstrm);
+
+    // Move to back.
+    move_to_back(connected_clients, client->cciter);
 
     // Invoke callback.
     request_callback(client);
