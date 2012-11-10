@@ -217,11 +217,16 @@ void after_write(uv_write_t* req, int status) {
 
     while (client->parser.http_errno != HPE_PAUSED &&
            !client->unparsed_data.empty()) {
+        assert(client->unparsed_data.size() == 1);
         bool consumed_all = on_resume_read(client, client->unparsed_data.front());
         if (consumed_all) {
+            free(client->unparsed_data[0].base);
+            client->unparsed_data[0].base = NULL;
             client->unparsed_data.erase(client->unparsed_data.begin());
         }
     }
+
+    assert(client->unparsed_data.size() <= 1);
 
     if (client->unparsed_data.empty()) {
         // Resume reading.

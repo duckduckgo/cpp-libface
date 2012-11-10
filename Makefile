@@ -6,6 +6,8 @@ INCDEPS=        include/segtree.hpp include/sparsetable.hpp include/benderrmq.hp
                 include/utils.hpp include/httpserver.hpp
 INCDIRS=        -I . -I deps
 OBJDEPS=        src/httpserver.o deps/libuv/libuv.a
+HTTPSERVERDEPS= src/httpserver.cpp include/httpserver.hpp include/utils.hpp \
+		include/types.hpp
 
 ifeq "$(findstring debug,$(MAKECMDGOALS))" ""
 OBJDEPS += deps/http-parser/http_parser.o
@@ -15,12 +17,12 @@ endif
 
 .PHONY: all clean debug test perf
 
-all: CFLAGS   += -O2 -DNDEBUG
-all: CXXFLAGS += -O2 -DNDEBUG
+all: CFLAGS   += -O2
+all: CXXFLAGS += -O2
 all: targets
 
-debug: CFLAGS   += -g
-debug: CXXFLAGS += -g
+debug: CFLAGS   += -g -DDEBUG
+debug: CXXFLAGS += -g -DDEBUG
 debug: targets
 
 targets: lib-face
@@ -28,7 +30,7 @@ targets: lib-face
 lib-face: src/main.cpp $(OBJDEPS) $(INCDEPS)
 	$(CXX) -o lib-face src/main.cpp $(OBJDEPS) $(INCDIRS) $(CXXFLAGS) $(LINKFLAGS)
 
-src/httpserver.o: src/httpserver.cpp include/httpserver.hpp
+src/httpserver.o: $(HTTPSERVERDEPS)
 	$(CXX) -o src/httpserver.o -c src/httpserver.cpp $(INCDIRS) $(CXXFLAGS)
 
 deps/libuv/libuv.a:

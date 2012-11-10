@@ -10,12 +10,12 @@
 
 #include <include/types.hpp>
 
-#if defined NDEBUG
-#define DCERR(X)
-#define DPRINTF(ARGS...)
-#else
+#if defined DEBUG
 #define DCERR(X) std::cerr<<X;
 #define DPRINTF(ARGS...) fprintf(stderr, ARGS);
+#else
+#define DCERR(X)
+#define DPRINTF(ARGS...)
 #endif
 
 #define assert_lt(X,Y) if (!((X)<(Y))) { fprintf(stderr, "%d < %d FAILED\n", (X), (Y)); assert((X)<(Y)); }
