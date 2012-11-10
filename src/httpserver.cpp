@@ -51,7 +51,6 @@ void build_HTTP_response_header(std::string &response_header,
     os<<buff;
     sprintf(buff, "%d", body.size());
     headers["Content-Length"] = buff;
-    headers["Connection"]     = "Keep-alive";
     for (headers_t::iterator i = headers.begin();
          i != headers.end(); ++i) {
         os<<i->first<<": "<<i->second<<"\r\n";
@@ -67,7 +66,14 @@ void write_response(client_t *client,
                     std::string &body) {
     assert(client->resstrs.empty());
     std::string header_str;
-    int http_major = 1, http_minor = 1;
+    const int http_major = client->parser.http_major;
+    const int http_minor = client->parser.http_minor;
+    if (http_should_keep_alive(&client->parser)) {
+        headers["Connection"] = "Keep-alive";
+    } else {
+        headers["Connection"] = "Close";
+    }
+
     build_HTTP_response_header(header_str, http_major, http_minor,
                                status_code, status_str, headers, body);
 
@@ -200,7 +206,7 @@ void after_write(uv_write_t* req, int status) {
     client_t *client = (client_t*)(req->handle->data);
     uv_stream_t *pstrm = (uv_stream_t*)(&client->handle);
 
-    if (status != 0) {
+    if (status != 0 || !http_should_keep_alive(&client->parser)) {
         uv_err_t err = uv_last_error(uv_loop);
         UVERR(err, "write");
         close_connection(client);
