@@ -1,6 +1,8 @@
 #include <include/httpserver.hpp>
 #include <include/utils.hpp>
 #include <signal.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #define CHECK(r, msg)                                           \
     if (r) {                                                    \
@@ -10,8 +12,9 @@
     }
 #define UVERR(err, msg) fprintf(stderr, "%s: %s\n", msg, uv_strerror(err))
 
-static const size_t MAX_CONNECTED_CLIENTS = 900;
 static const size_t MAX_URL_SIZE          = 2048;
+static size_t MAX_OPEN_FDS                = 0;
+static size_t MAX_CONNECTED_CLIENTS       = 0;    // Usually MAX_OPEN_FDS - 10
 
 static uv_loop_t* uv_loop;                          // UV-event-loop pointer
 static uv_tcp_t server;                             // Global TCP server
@@ -310,12 +313,24 @@ int on_message_complete(http_parser* parser) {
     return HTTP_PARSER_CONTINUE_PARSING;
 }
 
+size_t get_max_open_fds() {
+    struct rlimit rlim;
+    int r = getrlimit(RLIMIT_NOFILE, &rlim);
+    if (r != 0) {
+        return 0;
+    }
+    return (size_t)rlim.rlim_cur;
+}
+
 int httpserver_start(request_callback_t rcb, const char *ip, int port) {
     int r;
     request_callback = rcb;
 
     parser_settings.on_message_complete = on_message_complete;
     parser_settings.on_url              = on_url;
+
+    MAX_OPEN_FDS = get_max_open_fds();
+    MAX_CONNECTED_CLIENTS = (MAX_OPEN_FDS > 10 ? MAX_OPEN_FDS - 10 : MAX_OPEN_FDS);
 
     uv_loop = uv_default_loop();
     r = uv_tcp_init(uv_loop, &server);
