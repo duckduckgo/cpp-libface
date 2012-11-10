@@ -208,8 +208,6 @@ void after_write(uv_write_t* req, int status) {
     client->resstrs.clear();
     client->url.clear();
 
-    // http_parser_init(&client->parser, HTTP_REQUEST);
-
     // Resume parsing.
     http_parser_pause(&client->parser, 0);
 
