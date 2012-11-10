@@ -212,8 +212,6 @@ void after_write(uv_write_t* req, int status) {
 
     // Resume parsing.
     http_parser_pause(&client->parser, 0);
-    // fprintf(stderr, "client->parser.data: %p, client: %p\n", client->parser.data, client);
-    client->parser.data = client;
 
     while (client->parser.http_errno != HPE_PAUSED &&
            !client->unparsed_data.empty()) {

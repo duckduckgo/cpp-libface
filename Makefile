@@ -21,8 +21,8 @@ all: CFLAGS   += -O2
 all: CXXFLAGS += -O2
 all: targets
 
-debug: CFLAGS   += -g -DDEBUG
-debug: CXXFLAGS += -g -DDEBUG
+debug: CFLAGS   += -g -DDEBUG -DHTTP_PARSER_DEBUG
+debug: CXXFLAGS += -g -DDEBUG -DHTTP_PARSER_DEBUG
 debug: targets
 
 targets: lib-face
@@ -34,7 +34,7 @@ src/httpserver.o: $(HTTPSERVERDEPS)
 	$(CXX) -o src/httpserver.o -c src/httpserver.cpp $(INCDIRS) $(CXXFLAGS)
 
 deps/libuv/libuv.a:
-	$(MAKE) -C deps/libuv $(HPFLAGS)
+	$(MAKE) -C deps/libuv
 
 deps/http-parser/http_parser_g.o:
 	$(MAKE) -C deps/http-parser http_parser_g.o
