@@ -281,8 +281,9 @@ int on_url(http_parser *parser, const char *data, size_t len) {
     client->url.append(data, len);
     DPRINTF("URL is now: %s\n", client->url.c_str());
     if (client->url.size() > MAX_URL_SIZE) {
-        // An obviously buggy request.
-        close_connection(client);
+        // An obviously buggy request. The on_resume_read() function
+        // will close the connection.
+        DPRINTF("URL too long (%d > %d bytes)\n", client->url.size(), MAX_URL_SIZE);
         return HTTP_PARSER_STOP_PARSING;
     }
     return HTTP_PARSER_CONTINUE_PARSING;
