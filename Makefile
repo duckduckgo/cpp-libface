@@ -21,8 +21,8 @@ all: CFLAGS   += -O2
 all: CXXFLAGS += -O2
 all: targets
 
-debug: CFLAGS   += -g -DDEBUG -DHTTP_PARSER_DEBUG
-debug: CXXFLAGS += -g -DDEBUG -DHTTP_PARSER_DEBUG
+debug: CFLAGS   += -g -DDEBUG
+debug: CXXFLAGS += -g -DDEBUG
 debug: targets
 
 targets: lib-face
