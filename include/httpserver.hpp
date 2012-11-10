@@ -15,13 +15,24 @@
 typedef std::map<std::string, std::string> headers_t;
 typedef std::map<std::string, std::string> query_strings_t;
 
+struct partial_buf_t : uv_buf_t {
+    size_t size;
+    size_t offset;
+
+    partial_buf_t(uv_buf_t buf, size_t s, size_t o)
+        : uv_buf_t(buf), size(s), offset(o) { }
+};
+
 struct client_t {
-    uv_tcp_t handle;
-    http_parser parser;
-    uv_write_t write_req;
-    std::vector<std::string> resstrs;
+    uv_tcp_t                       handle;
+    http_parser                    parser;
+    uv_write_t                     write_req;
+    std::vector<std::string>       resstrs;
+    std::vector<partial_buf_t>     unparsed_data;
     std::list<client_t*>::iterator cciter;
-    std::string url;
+    std::string                    url;
+
+    client_t() { }
 };
 
 struct parsed_url_t {

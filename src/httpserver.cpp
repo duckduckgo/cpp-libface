@@ -1,5 +1,6 @@
 #include <include/httpserver.hpp>
 #include <include/utils.hpp>
+#include <signal.h>
 
 #define CHECK(r, msg)                                           \
     if (r) {                                                    \
@@ -83,6 +84,7 @@ void write_response(client_t *client,
 }
 
 void close_connection(client_t *client) {
+    assert(client->cciter != connected_clients.end());
     connected_clients.erase(client->cciter);
     client->cciter = connected_clients.end();
     --nconnected_clients;
@@ -92,10 +94,17 @@ void close_connection(client_t *client) {
 void on_close(uv_handle_t* handle) {
     DCERR("Connection Closed\n");
     client_t* client = (client_t*) handle->data;
+    for (size_t i = 0; i < client->unparsed_data.size(); ++i) {
+        free(client->unparsed_data[i].base);
+    }
+    // This is weird because handle is actually within 'client', so we
+    // need to NULL out 'data' before we delete client.
+    handle->data = NULL;
     delete client;
 }
 
 uv_buf_t on_alloc(uv_handle_t* client, size_t suggested_size) {
+    // fprintf(stderr, "suggested_size: %d\n", suggested_size);
     uv_buf_t buf;
     buf.base = (char*)malloc(suggested_size);
     assert(buf.base);
@@ -103,15 +112,40 @@ uv_buf_t on_alloc(uv_handle_t* client, size_t suggested_size) {
     return buf;
 }
 
-void on_read(uv_stream_t* tcp, ssize_t nread, uv_buf_t buf) {
+bool on_resume_read(client_t *client, partial_buf_t &pbuf) {
     ssize_t parsed;
+    if (client->parser.http_errno == HPE_PAUSED) {
+        return false;
+    }
+
+    ssize_t pending = pbuf.size - pbuf.offset;
+    DPRINTF("# of bytes remaining: %d\n", pending);
+    assert(pending > 0);
+
+    parsed = http_parser_execute(&client->parser, &parser_settings, pbuf.base + pbuf.offset, pending);
+    if (parsed < pending) {
+        DPRINTF("parsed incomplete data::%d/%d bytes parsed\n", parsed, pending);
+        if (client->parser.http_errno == HPE_PAUSED) {
+            pbuf.offset += parsed;
+        } else {
+            close_connection(client);
+        }
+        return false;
+    } else {
+        return true;
+    }
+}
+
+void on_read(uv_stream_t* tcp, ssize_t nread, uv_buf_t buf) {
     client_t* client = (client_t*) tcp->data;
+    partial_buf_t pbuf(buf, nread, 0);
+    assert(client->unparsed_data.empty());
 
     if (nread > 0) {
-        parsed = http_parser_execute(&client->parser, &parser_settings, buf.base, nread);
-        if (parsed < nread) {
-            DPRINTF("parse error::nread:%d, parsed: %d\n", nread, parsed);
-            close_connection(client);
+        bool consumed_all = on_resume_read(client, pbuf);
+        if (!consumed_all) {
+            buf.base = 0;
+            client->unparsed_data.push_back(pbuf);
         }
     } else if (nread < 0) {
         // Always close the connection on error.
@@ -122,7 +156,6 @@ void on_read(uv_stream_t* tcp, ssize_t nread, uv_buf_t buf) {
         }
         close_connection(client);
     }
-
     free(buf.base);
 }
 
@@ -175,12 +208,26 @@ void after_write(uv_write_t* req, int status) {
     client->resstrs.clear();
     client->url.clear();
 
-    http_parser_init(&client->parser, HTTP_REQUEST);
+    // http_parser_init(&client->parser, HTTP_REQUEST);
+
+    // Resume parsing.
+    http_parser_pause(&client->parser, 0);
+    // fprintf(stderr, "client->parser.data: %p, client: %p\n", client->parser.data, client);
     client->parser.data = client;
 
-    uv_read_start(pstrm, on_alloc, on_read);
-}
+    while (client->parser.http_errno != HPE_PAUSED &&
+           !client->unparsed_data.empty()) {
+        bool consumed_all = on_resume_read(client, client->unparsed_data.front());
+        if (consumed_all) {
+            client->unparsed_data.erase(client->unparsed_data.begin());
+        }
+    }
 
+    if (client->unparsed_data.empty()) {
+        // Resume reading.
+        uv_read_start(pstrm, on_alloc, on_read);
+    }
+}
 
 void parse_query_string(std::string &qstr, query_strings_t &query) {
     std::string key, value;
@@ -248,6 +295,9 @@ int on_message_complete(http_parser* parser) {
     // Stop reading (to support request pipelining in HTTP/1.1).
     uv_read_stop(pstrm);
 
+    // Pause request parsing.
+    http_parser_pause(parser, 1);
+
     // Move this connection to the back of the LRU list (front being
     // the least recently accessed connection).
     move_to_back(connected_clients, client->cciter);
@@ -255,7 +305,7 @@ int on_message_complete(http_parser* parser) {
     // Invoke callback.
     request_callback(client);
 
-    return HTTP_PARSER_STOP_PARSING;
+    return HTTP_PARSER_CONTINUE_PARSING;
 }
 
 int httpserver_start(request_callback_t rcb, const char *ip, int port) {
@@ -277,6 +327,9 @@ int httpserver_start(request_callback_t rcb, const char *ip, int port) {
         return r;
     }
     uv_listen((uv_stream_t*)&server, 128, on_connect);
+
+    // Ignore the SIGPIPE signal since we will handle it in-band.
+    (void) signal(SIGPIPE, SIG_IGN);
 
     uv_run(uv_loop);
     return 0;
