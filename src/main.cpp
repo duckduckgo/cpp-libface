@@ -664,7 +664,7 @@ static void handle_stats(client_t *client, parsed_url_t &url) {
     std::string body;
     char buff[2048];
     char *b = buff;
-    b += sprintf(b, "Answered %llu queries\n", nreq);
+    b += sprintf(b, "Answered %lu queries\n", nreq);
     b += sprintf(b, "Uptime: %s\n", get_uptime().c_str());
 
     if (building) {

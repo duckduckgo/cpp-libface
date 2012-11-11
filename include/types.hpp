@@ -99,4 +99,9 @@ typedef std::vector<char> vc_t;
 typedef std::vector<vc_t> vvc_t;
 typedef std::vector<vvc_t> vvvc_t;
 
+typedef vc_t   char_array_1d_t;
+typedef vvc_t  char_array_2d_t;
+typedef vvvc_t char_array_3d_t;
+
+
 #endif // LIBFACE_TYPES_HPP

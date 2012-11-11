@@ -148,7 +148,6 @@ main() {
     printf("Starting Segment Tree Test\n");
     test_segtree(input, queries, results);
 
-    printf("Starting bender RMQ Test\n");
+    printf("Starting Bender RMQ Test\n");
     test_benderrmq(input, queries, results);
-
 }

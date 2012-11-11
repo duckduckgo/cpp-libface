@@ -188,7 +188,7 @@ toGraphViz(BinaryTreeNode* par, BinaryTreeNode *n) {
 }
 
 class LookupTables {
-    vvvc_t repr;
+    char_array_3d_t repr;
 
     /* The bitmaps are stored with the LSB always set as 1 and the LSB
      * signifying the sign of the element at array index 0. The MSB
@@ -218,7 +218,7 @@ public:
 	    // first. i.e. table[3][5] and NOT table[5][3]. Never
 	    // lookup with the same index on both dimenstion (for
 	    // example: table[3][3]).
-	    vvc_t table(nbits-1, vc_t(nbits, -1));
+	    char_array_2d_t table(nbits-1, vc_t(nbits, -1));
 
 	    // Compute the lookup table for the bitmap in 'i'.
 	    for (int r = 0; r < nbits-1; ++r) {

@@ -1,4 +1,3 @@
-CFLAGS=		-W -Wall -std=c99 -pedantic $(COPT)
 CXXFLAGS=       -Wall $(COPT) -D_FILE_OFFSET_BITS=64
 LINKFLAGS=	-lm -lrt -pthread
 INCDEPS=        include/segtree.hpp include/sparsetable.hpp include/benderrmq.hpp \
@@ -17,13 +16,14 @@ endif
 
 .PHONY: all clean debug test perf
 
-all: CFLAGS   += -O2
 all: CXXFLAGS += -O2
 all: targets
 
-debug: CFLAGS   += -g -DDEBUG
 debug: CXXFLAGS += -g -DDEBUG
 debug: targets
+
+test: CXXFLAGS += -g -DDEBUG
+perf: CXXFLAGS += -O2
 
 targets: lib-face
 
