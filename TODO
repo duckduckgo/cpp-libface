@@ -1,4 +1,15 @@
-1. Approximate query matching (potentially use soundex and/or expose another search URL)
-2. Detect if input file is sorted and sort of not sorted (eliminates the -s switch)
-3. Show upper bound on time saved if input file were sorted (in case of unsorted input file)
-4. Update project URL on website, blog post, -h screen, etc...
+1. Approximate query matching (potentially use soundex and/or expose
+another search URL)
+
+2. Detect if input file is sorted and sort of not sorted (eliminates
+the -s switch)
+
+3. Show upper bound on time saved if input file were sorted (in case
+of unsorted input file)
+
+4. Vulnerable to long bodies being sent by attacker. Does not cause
+memory blow-up but causes data to be continuously read. There is
+nothing we can do about it since the attacker could very well just
+create many connections and do the same thing even if we limit the #
+of bytes received on a single connection. Let me know if there is a
+better way to handle this.

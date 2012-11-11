@@ -8,7 +8,7 @@ lib-face implements *Approach-4* as mentioned in the blog post. The total cost o
 
 You can help by testing the new ```BenderRMQ``` data structure that has an O(n) space overhead and build cost and O(1) query cost. To read up on RMQ (Range Maximum Query), see [here](http://community.topcoder.com/tc?module=Static&d1=tutorials&d2=lowestCommonAncestor#A%20O%28N%29,%20O%281%29%20algorithm%20for%20the%20restricted%20RMQ) and [here](http://www.topcoder.com/tc?module=LinkTracking&link=http://www.math.tau.ac.il/~haimk/seminar04/LCA-seminar-modified.ppt&refer=)
 
-lib-face is written using C++ and uses the in-process [Mongoose Web Server](http://code.google.com/p/mongoose/) to serve requests.
+lib-face is written using C++ and uses [libuv](https://github.com/joyent/libuv/) and the [joyent http-parser](https://github.com/joyent/http-parser/) to serve requests.
 
 Visit the [Quick Start Guide](https://github.com/duckduckgo/cpp-libface/wiki/Quick-Start-Guide) to get started now!
 

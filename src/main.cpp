@@ -15,7 +15,7 @@
 
 
 // Custom-includes
-#include "mongoose.h"
+#include <include/httpserver.hpp>
 #include <include/segtree.hpp>
 #include <include/sparsetable.hpp>
 #include <include/benderrmq.hpp>
@@ -59,8 +59,7 @@ time_t started_at;              // When was the server started
 bool ac_sorted = false;         // Is the input sorted
 bool opt_show_help = false;     // Was --help requested?
 const char *ac_file = NULL;     // Path to the input file
-const char *port = "6767";      // The port number on which to start the HTTP server
-
+int port = 6767;                // The port number on which to start the HTTP server
 const char *project_homepage_url = "https://github.com/duckduckgo/cpp-libface/";
 
 enum {
@@ -239,28 +238,6 @@ file_size(const char *path) {
     return sbuf.st_size;
 }
 
-// In case the query string is longer than 1022 bytes, this function
-// returns an empty string. This can cause lib-face to return
-// arbitrary entries to the client. These entries are not complete
-// arbitrary, but are the globally top ranked phrases.
-std::string
-get_qs(const struct mg_request_info *request_info, std::string const& key) {
-    char val[1024];
-    std::string rv;
-
-    val[1023] = val[0] = '\0';
-    // printf("query string: %s\n", request_info->query_string);
-
-    int val_len = 0;
-    if (request_info->query_string) {
-        val_len = mg_get_var(request_info->query_string, 
-                             strlen(request_info->query_string), 
-                             key.c_str(), val, 1023);
-        rv = val;
-    }
-    return rv;
-}
-
 int
 get_memory_usage(pid_t pid) {
     char cbuff[4096];
@@ -278,15 +255,6 @@ get_memory_usage(pid_t pid) {
     r = atoi(cbuff);
     fclose(pf);
     return r;
-}
-
-void
-print_HTTP_response(struct mg_connection *conn, 
-                    int code, const char *description, 
-                    const char *content_type = "text/plain; charset=UTF-8") {
-    mg_printf(conn, "HTTP/1.0 %d %s\r\n"
-              "Cache-Control: no-cache\r\n"
-              "Content-Type: %s\r\n\r\n", code, description, content_type);
 }
 
 char
@@ -559,13 +527,14 @@ do_import(std::string file, int sorted, uint_t limit,
     return 0;
 }
 
-static void*
-handle_import(enum mg_event event,
-              struct mg_connection *conn,
-              const struct mg_request_info *request_info) {
-    std::string file = get_qs(request_info, "file");
-    int sorted = atoi(get_qs(request_info, "sorted").c_str());
-    uint_t limit  = atoi(get_qs(request_info, "limit").c_str());
+static void handle_import(client_t *client, parsed_url_t &url) {
+    std::string body;
+    headers_t headers;
+    headers["Cache-Control"] = "no-cache";
+
+    std::string file = url.query["file"];
+    int sorted       = atoi(url.query["sorted"].c_str());
+    uint_t limit     = atoi(url.query["limit"].c_str());
     int nadded, nlines;
     const time_t start_time = time(NULL);
 
@@ -577,42 +546,46 @@ handle_import(enum mg_event event,
     if (ret < 0) {
         switch (-ret) {
         case IMPORT_FILE_NOT_FOUND:
-            print_HTTP_response(conn, 404, "Not Found");
-            mg_printf(conn, "The file '%s' was not found", file.c_str());
+            body = "The file '" + file + "' was not found";
+            write_response(client, 404, "Not Found", headers, body);
             break;
 
         case IMPORT_MUNMAP_FAILED:
-            print_HTTP_response(conn, 500, "Internal Server Error");
-            mg_printf(conn, "munmap(2) failed");
+            body = "munmap(2) failed";
+            write_response(client, 500, "Internal Server Error", headers, body);
             break;
 
         case IMPORT_MMAP_FAILED:
-            print_HTTP_response(conn, 500, "Internal Server Error");
-            mg_printf(conn, "mmap(2) failed");
+            body = "mmap(2) failed";
+            write_response(client, 500, "Internal Server Error", headers, body);
             break;
 
         default:
+            body = "Unknown Error";
+            write_response(client, 500, "Internal Server Error", headers, body);
             cerr<<"ERROR::Unknown error: "<<ret<<endl;
         }
     }
     else {
-        print_HTTP_response(conn, 200, "OK");
-        mg_printf(conn, "Successfully added %d/%d records from \"%s\" in %d second(s)\n", 
-                  nadded, nlines, file.c_str(), time(NULL) - start_time);
+        std::ostringstream os;
+        os << "Successfully added " << nadded << "/" << nlines
+           << "records from '" << file << "' in " << (time(NULL) - start_time)
+           << "second(s)\n";
+        body = os.str();
+        write_response(client, 200, "OK", headers, body);
     }
-
-    return (void*)"";
 }
 
-static void*
-handle_export(enum mg_event event,
-              struct mg_connection *conn,
-              const struct mg_request_info *request_info) {
-    std::string file = get_qs(request_info, "file");
+static void handle_export(client_t *client, parsed_url_t &url) {
+    std::string body;
+    headers_t headers;
+    headers["Cache-Control"] = "no-cache";
+
+    std::string file = url.query["file"];
     if (building) {
-        print_HTTP_response(conn, 412, "Busy");
-        mg_printf(conn, "Busy\n");
-        return (void*)"";
+        body = "Busy\n";
+        write_response(client, 412, "Busy", headers, body);
+        return;
     }
 
     // Prevent modifications to 'pm' while we export
@@ -625,26 +598,29 @@ handle_export(enum mg_event event,
     }
 
     building = false;
-    mg_printf(conn, "Successfully wrote %u records to output file '%s' in %d second(s)\n", 
-              pm.repr.size(), file.c_str(), time(NULL) - start_time);
-    return (void*)"";
+    std::ostringstream os;
+    os << "Successfully wrote " << pm.repr.size()
+       << " records to output file '" << file
+       << "' in " << (time(NULL) - start_time) << "second(s)\n";
+    body = os.str();
+    write_response(client, 200, "OK", headers, body);
 }
 
-static void*
-handle_suggest(enum mg_event event,
-               struct mg_connection *conn,
-               const struct mg_request_info *request_info) {
-
+static void handle_suggest(client_t *client, parsed_url_t &url) {
     ++nreq;
+    std::string body;
+    headers_t headers;
+    headers["Cache-Control"] = "no-cache";
+
     if (building) {
-        print_HTTP_response(conn, 412, "Busy");
-        return (void*)"";
+        write_response(client, 412, "Busy", headers, body);
+        return;
     }
 
-    std::string q    = get_qs(request_info, "q");
-    std::string sn   = get_qs(request_info, "n");
-    std::string cb   = get_qs(request_info, "callback");
-    std::string type = get_qs(request_info, "type");
+    std::string q    = url.query["q"];
+    std::string sn   = url.query["n"];
+    std::string cb   = url.query["callback"];
+    std::string type = url.query["type"];
 
     DCERR("handle_suggest::q:"<<q<<", sn:"<<sn<<", callback: "<<cb<<endl);
 
@@ -652,14 +628,15 @@ handle_suggest(enum mg_event event,
     if (n > NMAX) {
         n = NMAX;
     }
+    if (n < 1) {
+        n = 1;
+    }
 
     const bool has_cb = !cb.empty();
     if (has_cb && !is_valid_cb(cb)) {
-        print_HTTP_response(conn, 400, "Invalid Request");
-        return (void*)"";
+        write_response(client, 400, "Invalid Request", headers, body);
+        return;
     }
-
-    print_HTTP_response(conn, 200, "OK");
 
     str_lowercase(q);
     vp_t results = suggest(pm, st, q, n);
@@ -669,71 +646,67 @@ handle_suggest(enum mg_event event,
       mg_printf(conn, "%s:%d\n", results[i].first.c_str(), results[i].second);
       }
     */
+    headers["Content-Type"] = "text/plain; charset=UTF-8";
     if (has_cb) {
-        mg_printf(conn, "%s(%s);\n", cb.c_str(), results_json(q, results, type).c_str());
+        body = cb + "(" + results_json(q, results, type) + ");\n";
     }
     else {
-        mg_printf(conn, "%s\n", results_json(q, results, type).c_str());
+        body = results_json(q, results, type) + "\n";
     }
 
-    return (void*)"";
+    write_response(client, 200, "OK", headers, body);
 }
 
-static void*
-handle_stats(enum mg_event event,
-             struct mg_connection *conn,
-             const struct mg_request_info *request_info) {
-    print_HTTP_response(conn, 200, "OK");
-    mg_printf(conn, "Answered %d queries\n", nreq);
-    mg_printf(conn, "Uptime: %s\n", get_uptime().c_str());
+static void handle_stats(client_t *client, parsed_url_t &url) {
+    headers_t headers;
+    headers["Cache-Control"] = "no-cache";
+
+    std::string body;
+    char buff[2048];
+    char *b = buff;
+    b += sprintf(b, "Answered %llu queries\n", nreq);
+    b += sprintf(b, "Uptime: %s\n", get_uptime().c_str());
 
     if (building) {
-        mg_printf(conn, "Data Store is busy\n");
+        b += sprintf(b, "Data Store is busy\n");
     }
     else {
-        mg_printf(conn, "Data store size: %d entries\n", pm.repr.size());
+        b += sprintf(b, "Data store size: %d entries\n", pm.repr.size());
     }
-    mg_printf(conn, "Memory usage: %d MiB\n", get_memory_usage(getpid())/1024);
-
-    return (void*)"";
+    b += sprintf(b, "Memory usage: %d MiB\n", get_memory_usage(getpid())/1024);
+    body = buff;
+    write_response(client, 200, "OK", headers, body);
 }
 
-static void*
-handle_invalid_request(enum mg_event event,
-                       struct mg_connection *conn,
-                       const struct mg_request_info *request_info) {
-    print_HTTP_response(conn, 404, "Not Found");
-    mg_printf(conn, "Sorry, but the page you requested could not be found\n");
+static void handle_invalid_request(client_t *client, parsed_url_t &url) {
+    headers_t headers;
+    headers["Cache-Control"] = "no-cache";
 
-    return (void*)"";
+    std::string body = "Sorry, but the page you requested could not be found\n";
+    write_response(client, 404, "Not Found", headers, body);
 }
 
 
+void serve_request(client_t *client) {
+    parsed_url_t url;
+    parse_URL(client->url, url);
+    std::string &request_uri = url.path;
+    DCERR("request_uri: " << request_uri << endl);
 
-static void*
-callback(enum mg_event event,
-         struct mg_connection *conn,
-         const struct mg_request_info *request_info) {
-    if (event == MG_NEW_REQUEST) {
-        std::string request_uri = request_info->uri;
-        if (request_uri == "/face/suggest/") {
-            return handle_suggest(event, conn, request_info);
-        }
-        else if (request_uri == "/face/import/") {
-            return handle_import(event, conn, request_info);
-        }
-        else if (request_uri == "/face/export/") {
-            return handle_export(event, conn, request_info);
-        }
-        else if (request_uri == "/face/stats/") {
-            return handle_stats(event, conn, request_info);
-        }
-        else {
-            return handle_invalid_request(event, conn, request_info);
-        }
+    if (request_uri == "/face/suggest/") {
+        handle_suggest(client, url);
+    }
+    else if (request_uri == "/face/import/") {
+        handle_import(client, url);
+    }
+    else if (request_uri == "/face/export/") {
+        handle_export(client, url);
+    }
+    else if (request_uri == "/face/stats/") {
+        handle_stats(client, url);
     }
     else {
-        return NULL;
+        handle_invalid_request(client, url);
     }
 }
 
@@ -782,7 +755,7 @@ parse_options(int argc, char *argv[]) {
 
         case 'p':
             DCERR("Port: "<<optarg<<" ("<<atoi(optarg)<<")\n");
-            port = optarg;
+            port = atoi(optarg);
             break;
 
         case 's':
@@ -817,9 +790,6 @@ main(int argc, char* argv[]) {
         return 0;
     }
 
-    struct mg_context *ctx;
-    const char *options[] = {"listening_ports", port, NULL};
-
     started_at = time(NULL);
 
     cerr<<"INFO::Starting lib-face on port '"<<port<<"'\n";
@@ -853,17 +823,10 @@ main(int argc, char* argv[]) {
         }
     }
 
-    ctx = mg_start(&callback, NULL, options);
-    if (!ctx) {
+    int r = httpserver_start(&serve_request, "0.0.0.0", port);
+    if (r != 0) {
         fprintf(stderr, "ERROR::Could not start the web server\n");
         return 1;
     }
-
-    while (1) {
-        // Never stop
-        sleep(100);
-    }
-    mg_stop(ctx);
-
     return 0;
 }

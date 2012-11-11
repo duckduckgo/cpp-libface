@@ -9,18 +9,27 @@ function print_stats() {
 
 function main() {
     var opts = {
-	host: 'localhost', 
-	port: 6767, 
-	path: '/face/suggest/?q=h&n=10'
+	host: 'localhost',
+	port: 6767,
+	path: '/face/suggest/?q=h&n=10',
+        headers: { "Connection": "Keep-alive" }
     };
     var req;
 
     function req_handler(res) {
 	++ctr;
-	req = http.get(opts, req_handler);
+	http.get(opts, req_handler);
     }
 
-    req = http.get(opts, req_handler);
+    var i;
+
+    // If we set MAX to anything > 5 (say 50), that ensures that the
+    // already open socket is used by the http agent, and req/sec goes
+    // up from 600 to 10000!!
+    var MAX = 10;
+    for (i = 0; i < MAX; ++i) {
+        http.get(opts, req_handler);
+    }
 
     setInterval(print_stats, 1000);
 }

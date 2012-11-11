@@ -73,7 +73,7 @@ struct phrase_t {
 
 // Specialize std::swap for our type
 namespace std {
-    void
+    inline void
     swap(phrase_t& lhs, phrase_t& rhs) {
         lhs.swap(rhs);
     }
