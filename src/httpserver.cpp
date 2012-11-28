@@ -49,7 +49,7 @@ void build_HTTP_response_header(std::string &response_header,
     // Ensure that status_str is small enough that everything fits in under 2048 bytes.
     sprintf(buff, "HTTP/%d.%d %d %s\r\n", http_major, http_minor, status_code, status_str);
     os<<buff;
-    sprintf(buff, "%d", body.size());
+    sprintf(buff, "%u", body.size());
     headers["Content-Length"] = buff;
     for (headers_t::iterator i = headers.begin();
          i != headers.end(); ++i) {
