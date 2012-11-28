@@ -56,7 +56,6 @@ volatile bool building = false; // TRUE if the structure is being built
 unsigned long nreq = 0;         // The total number of requests served till now
 int line_limit = -1;            // The number of lines to import from the input file
 time_t started_at;              // When was the server started
-bool ac_sorted = false;         // Is the input sorted
 bool opt_show_help = false;     // Was --help requested?
 const char *ac_file = NULL;     // Path to the input file
 int port = 6767;                // The port number on which to start the HTTP server
@@ -409,12 +408,6 @@ get_uptime() {
     return humanized_time_difference(started_at, time(NULL));
 }
 
-bool
-is_valid_cb(std::string const& cb) {
-    // We don't check since this could be any valid javascript expression
-    return true;
-}
-
 bool is_EOF(FILE *pf) { return feof(pf); }
 bool is_EOF(std::ifstream fin) { return !!fin; }
 
@@ -438,8 +431,9 @@ void get_line(std::ifstream fin, char *buff, int buff_len, int &read_len) {
 
 
 int
-do_import(std::string file, int sorted, uint_t limit, 
+do_import(std::string file, uint_t limit, 
           int &rnadded, int &rnlines) {
+    bool is_input_sorted = true;
 #if defined USE_CXX_IO
     std::ifstream fin(file.c_str());
 #else
@@ -484,6 +478,7 @@ do_import(std::string file, int sorted, uint_t limit,
 
         pm.repr.clear();
         char buff[INPUT_LINE_SIZE];
+        std::string prev_phrase;
 
         while (!is_EOF(fin) && limit--) {
             buff[0] = '\0';
@@ -505,13 +500,20 @@ do_import(std::string file, int sorted, uint_t limit,
 
             if (!phrase.empty()) {
                 str_lowercase(phrase);
-                DCERR("Adding: "<<weight<<", "<<phrase<<", "<<std::string(snippet)<<endl);
+                DCERR("Adding: " << weight << ", " << phrase << ", " << std::string(snippet) << endl);
                 pm.insert(weight, phrase, snippet);
+            }
+            if (is_input_sorted && prev_phrase <= phrase) {
+                prev_phrase.swap(phrase);
+            } else if (is_input_sorted) {
+                is_input_sorted = false;
             }
         }
 
+        DCERR("Creating PhraseMap::Input is " << (!is_input_sorted ? "NOT " : "") << "sorted\n");
+
         fclose(fin);
-        pm.finalize(sorted);
+        pm.finalize(is_input_sorted);
         vui_t weights;
         for (size_t i = 0; i < pm.repr.size(); ++i) {
             weights.push_back(pm.repr[i].weight);
@@ -533,7 +535,6 @@ static void handle_import(client_t *client, parsed_url_t &url) {
     headers["Cache-Control"] = "no-cache";
 
     std::string file = url.query["file"];
-    int sorted       = atoi(url.query["sorted"].c_str());
     uint_t limit     = atoi(url.query["limit"].c_str());
     int nadded, nlines;
     const time_t start_time = time(NULL);
@@ -542,7 +543,7 @@ static void handle_import(client_t *client, parsed_url_t &url) {
         limit = minus_one;
     }
 
-    int ret = do_import(file, sorted, limit, nadded, nlines);
+    int ret = do_import(file, limit, nadded, nlines);
     if (ret < 0) {
         switch (-ret) {
         case IMPORT_FILE_NOT_FOUND:
@@ -633,11 +634,6 @@ static void handle_suggest(client_t *client, parsed_url_t &url) {
     }
 
     const bool has_cb = !cb.empty();
-    if (has_cb && !is_valid_cb(cb)) {
-        write_response(client, 400, "Invalid Request", headers, body);
-        return;
-    }
-
     str_lowercase(q);
     vp_t results = suggest(pm, st, q, n);
 
@@ -720,7 +716,6 @@ show_usage(char *argv[]) {
     printf("-f, --file=PATH      Path of the file containing the phrases\n");
     printf("-p, --port=PORT      TCP port on which to start lib-face (default: 6767)\n");
     printf("-l, --limit=LIMIT    Load only the first LIMIT lines from PATH (default: -1 [unlimited])\n");
-    printf("-s, --sorted         If specified, the input file (PATH) is assumed to be sorted by phrase\n");
     printf("\n");
     printf("Please visit %s for more information.\n", project_homepage_url);
 }
@@ -735,12 +730,11 @@ parse_options(int argc, char *argv[]) {
             {"file", 1, 0, 'f'},
             {"port", 1, 0, 'p'},
             {"limit", 1, 0, 'l'},
-            {"sorted", 0, 0, 's'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "f:p:l:sh",
+        c = getopt_long(argc, argv, "f:p:l:h",
                         long_options, &option_index);
 
         if (c == -1)
@@ -758,11 +752,6 @@ parse_options(int argc, char *argv[]) {
             port = atoi(optarg);
             break;
 
-        case 's':
-            DCERR("File is Sorted\n");
-            ac_sorted = true;
-            break;
-          
         case 'h':
             opt_show_help = true;
             break;
@@ -797,7 +786,7 @@ main(int argc, char* argv[]) {
     if (ac_file) {
         int nadded, nlines;
         const time_t start_time = time(NULL);
-        int ret = do_import(ac_file, ac_sorted, line_limit, nadded, nlines);
+        int ret = do_import(ac_file, line_limit, nadded, nlines);
         if (ret < 0) {
             switch (-ret) {
             case IMPORT_FILE_NOT_FOUND:
