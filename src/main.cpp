@@ -268,6 +268,50 @@ str_lowercase(std::string &str) {
 
 }
 
+#define BOUNDED_RETURN(CH,LB,UB) if (ch >= LB && CH <= UB) { return CH - LB; }
+
+inline int
+hex2dec(unsigned char ch) {
+    BOUNDED_RETURN(ch, '0', '9');
+    BOUNDED_RETURN(ch, 'A', 'F');
+    BOUNDED_RETURN(ch, 'a', 'f');
+    return 0;
+}
+
+#undef BOUNDED_RETURN
+
+std::string
+unescape_query(std::string const &query) {
+    enum {
+        QP_DEFAULT = 0,
+        QP_ESCAPED1 = 1,
+        QP_ESCAPED2 = 2
+    };
+    std::string ret;
+    char echar = 0;
+    int state = QP_DEFAULT;
+    for (size_t i = 0; i < query.size(); ++i) {
+        switch (state) {
+        case QP_DEFAULT:
+            if (query[i] != '%') {
+                ret += query[i];
+            } else {
+                state = QP_ESCAPED1;
+                echar = 0;
+            }
+            break;
+        case QP_ESCAPED1:
+        case QP_ESCAPED2:
+            echar *= 16;
+            echar += hex2dec(query[i]);
+            if (state == QP_ESCAPED2) {
+                ret += echar;
+            }
+            state = (state + 1) % 3;
+        }
+    }
+    return ret;
+}
 
 inline std::string
 uint_to_string(uint_t n, uint_t pad = 0) {
@@ -534,7 +578,7 @@ static void handle_import(client_t *client, parsed_url_t &url) {
     headers_t headers;
     headers["Cache-Control"] = "no-cache";
 
-    std::string file = url.query["file"];
+    std::string file = unescape_query(url.query["file"]);
     uint_t limit     = atoi(url.query["limit"].c_str());
     int nadded, nlines;
     const time_t start_time = time(NULL);
@@ -618,10 +662,10 @@ static void handle_suggest(client_t *client, parsed_url_t &url) {
         return;
     }
 
-    std::string q    = url.query["q"];
+    std::string q    = unescape_query(url.query["q"]);
     std::string sn   = url.query["n"];
-    std::string cb   = url.query["callback"];
-    std::string type = url.query["type"];
+    std::string cb   = unescape_query(url.query["callback"]);
+    std::string type = unescape_query(url.query["type"]);
 
     DCERR("handle_suggest::q:"<<q<<", sn:"<<sn<<", callback: "<<cb<<endl);
 
