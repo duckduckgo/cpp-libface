@@ -237,6 +237,7 @@ file_size(const char *path) {
     return sbuf.st_size;
 }
 
+// TODO: Fix for > 2GiB memory usage by using uint64_t
 int
 get_memory_usage(pid_t pid) {
     char cbuff[4096];
