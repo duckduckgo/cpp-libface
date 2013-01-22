@@ -269,7 +269,7 @@ str_lowercase(std::string &str) {
 
 }
 
-#define BOUNDED_RETURN(CH,LB,UB,OFFSET) if (ch >= LB && CH <= UB) { return CH - LB; }
+#define BOUNDED_RETURN(CH,LB,UB,OFFSET) if (ch >= LB && CH <= UB) { return CH - LB + OFFSET; }
 
 inline int
 hex2dec(unsigned char ch) {
