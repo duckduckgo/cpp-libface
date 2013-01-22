@@ -117,8 +117,8 @@ struct InputLineParser {
         int i = 0;                  // The current record byte-offset.
         int n = 0;                  // Temporary buffer for numeric (integer) fields.
         const char *p_start = NULL; // Beginning of the phrase.
-        const char *s_start = NULL; // Beginning of the prefix.
-        int p_len = 0;              // Prefix Length.
+        const char *s_start = NULL; // Beginning of the snippet.
+        int p_len = 0;              // Phrase Length.
         int s_len = 0;              // Snippet length.
 
         while (this->buff[i]) {
@@ -269,13 +269,13 @@ str_lowercase(std::string &str) {
 
 }
 
-#define BOUNDED_RETURN(CH,LB,UB) if (ch >= LB && CH <= UB) { return CH - LB; }
+#define BOUNDED_RETURN(CH,LB,UB,OFFSET) if (ch >= LB && CH <= UB) { return CH - LB; }
 
 inline int
 hex2dec(unsigned char ch) {
-    BOUNDED_RETURN(ch, '0', '9');
-    BOUNDED_RETURN(ch, 'A', 'F');
-    BOUNDED_RETURN(ch, 'a', 'f');
+    BOUNDED_RETURN(ch, '0', '9', 0);
+    BOUNDED_RETURN(ch, 'A', 'F', 10);
+    BOUNDED_RETURN(ch, 'a', 'f', 10);
     return 0;
 }
 
@@ -289,7 +289,7 @@ unescape_query(std::string const &query) {
         QP_ESCAPED2 = 2
     };
     std::string ret;
-    char echar = 0;
+    unsigned char echar = 0;
     int state = QP_DEFAULT;
     for (size_t i = 0; i < query.size(); ++i) {
         switch (state) {
