@@ -9,7 +9,7 @@ function main() {
     var nreq = 4;
     var conn;
     var req_str = "GET /face/suggest/?q=h&n=1 HTTP/1.1\r\n" + 
-        "Connection: Keep-alive\r\n\r\n";
+        "Connection: Keep-Alive\r\n\r\n";
     var req_data = req_str + req_str + req_str + req_str;
 
     function on_connect(res) {

@@ -12,7 +12,7 @@ function main() {
 	host: 'localhost',
 	port: 6767,
 	path: '/face/suggest/?q=h&n=10',
-        headers: { "Connection": "Keep-alive" }
+        headers: { "Connection": "Keep-Alive" }
     };
     var req;
 
