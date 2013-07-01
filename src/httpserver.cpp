@@ -69,7 +69,7 @@ void write_response(client_t *client,
     const int http_major = client->parser.http_major;
     const int http_minor = client->parser.http_minor;
     if (http_should_keep_alive(&client->parser)) {
-        headers["Connection"] = "Keep-alive";
+        headers["Connection"] = "Keep-Alive";
     } else {
         headers["Connection"] = "Close";
     }
