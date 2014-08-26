@@ -687,7 +687,7 @@ static void handle_suggest(client_t *client, parsed_url_t &url) {
       mg_printf(conn, "%s:%d\n", results[i].first.c_str(), results[i].second);
       }
     */
-    headers["Content-Type"] = "text/plain; charset=UTF-8";
+    headers["Content-Type"] = "application/json; charset=UTF-8";
     if (has_cb) {
         body = cb + "(" + results_json(q, results, type) + ");\n";
     }
