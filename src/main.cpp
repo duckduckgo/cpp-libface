@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 #include <assert.h>
 #include <fcntl.h>
 
@@ -817,18 +818,9 @@ parse_options(int argc, char *argv[]) {
             break;
         }
     }
-
-
 }
 
-
-int
-main(int argc, char* argv[]) {
-    parse_options(argc, argv);
-    if (opt_show_help) {
-        show_usage(argv);
-        return 0;
-    }
+int do_server(void) {
 
     started_at = time(NULL);
 
@@ -869,4 +861,42 @@ main(int argc, char* argv[]) {
         return 1;
     }
     return 0;
+}
+
+int
+main(int argc, char* argv[]) {
+    parse_options(argc, argv);
+    if (opt_show_help) {
+        show_usage(argv);
+        return 0;
+    }
+
+    int result = fork();
+
+    if(result == 0) {
+       do_server();
+    }
+    else if(result < 0) {
+        perror("fork: "); exit(1);
+    }
+    else {
+        for(;;)
+        {
+            int status = 0;
+            waitpid(-1, &status, 0);
+            if(!WIFEXITED(status))
+            {
+                result = fork();
+                if(result == 0) {
+                    do_server();
+                }
+                else if(result < 0)
+                {
+                    puts("Crashed and cannot restart");
+                    exit(1);
+                }
+            }
+            else exit(0);
+        }
+    }
 }
