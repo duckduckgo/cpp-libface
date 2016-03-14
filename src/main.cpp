@@ -37,7 +37,7 @@
 
 #if !defined INPUT_LINE_SIZE
 // Max. line size is 8191 bytes.
-#define INPUT_LINE_SIZE 8192
+#define INPUT_LINE_SIZE 32768
 #endif
 
 // How many bytes to reserve for the output string
