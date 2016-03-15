@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 #include <assert.h>
 #include <fcntl.h>
 
@@ -36,7 +37,7 @@
 
 #if !defined INPUT_LINE_SIZE
 // Max. line size is 8191 bytes.
-#define INPUT_LINE_SIZE 8192
+#define INPUT_LINE_SIZE 32768
 #endif
 
 // How many bytes to reserve for the output string
@@ -52,6 +53,7 @@ PhraseMap pm;                   // Phrase Map (usually a sorted array of strings
 RMQ st;                         // An instance of the RMQ Data Structure
 char *if_mmap_addr = NULL;      // Pointer to the mmapped area of the file
 off_t if_length = 0;            // The length of the input file
+int if_fd = -1;                 // Fix for file descriptor leaks
 volatile bool building = false; // TRUE if the structure is being built
 unsigned long nreq = 0;         // The total number of requests served till now
 int line_limit = -1;            // The number of lines to import from the input file
@@ -485,11 +487,16 @@ do_import(std::string file, uint_t limit,
     FILE *fin = fopen(file.c_str(), "r");
 #endif
 
-    int fd = open(file.c_str(), O_RDONLY);
+    if(-1 != if_fd) {
+        close(if_fd);
+        if_fd = -1;
+    }
 
-    DCERR("handle_import::file:" << file << "[fin: " << (!!fin) << ", fd: " << fd << "]" << endl);
+    if_fd = open(file.c_str(), O_RDONLY);
 
-    if (!fin || fd == -1) {
+    DCERR("handle_import::file:" << file << "[fin: " << (!!fin) << ", fd: " << if_fd << "]" << endl);
+
+    if (!fin || if_fd == -1) {
         perror("fopen");
         return -IMPORT_FILE_NOT_FOUND;
     }
@@ -511,12 +518,12 @@ do_import(std::string file, uint_t limit,
         if_length = file_size(file.c_str());
 
         // mmap() the input file in
-        if_mmap_addr = (char*)mmap(NULL, if_length, PROT_READ, MAP_SHARED, fd, 0);
+        if_mmap_addr = (char*)mmap(NULL, if_length, PROT_READ, MAP_SHARED, if_fd, 0);
         if (if_mmap_addr == MAP_FAILED) {
-            fprintf(stderr, "length: %llu, fd: %d\n", if_length, fd);
+            fprintf(stderr, "length: %llu, fd: %d\n", if_length, if_fd);
             perror("mmap");
             if (fin) { fclose(fin); }
-            if (fd != -1) { close(fd); }
+            if (if_fd != -1) { close(if_fd); }
             building = false;
             return -IMPORT_MMAP_FAILED;
         }
@@ -811,18 +818,9 @@ parse_options(int argc, char *argv[]) {
             break;
         }
     }
-
-
 }
 
-
-int
-main(int argc, char* argv[]) {
-    parse_options(argc, argv);
-    if (opt_show_help) {
-        show_usage(argv);
-        return 0;
-    }
+int do_server(void) {
 
     started_at = time(NULL);
 
@@ -863,4 +861,42 @@ main(int argc, char* argv[]) {
         return 1;
     }
     return 0;
+}
+
+int
+main(int argc, char* argv[]) {
+    parse_options(argc, argv);
+    if (opt_show_help) {
+        show_usage(argv);
+        return 0;
+    }
+
+    int result = fork();
+
+    if(result == 0) {
+       do_server();
+    }
+    else if(result < 0) {
+        perror("fork: "); exit(1);
+    }
+    else {
+        for(;;)
+        {
+            int status = 0;
+            waitpid(-1, &status, 0);
+            if(!WIFEXITED(status))
+            {
+                result = fork();
+                if(result == 0) {
+                    do_server();
+                }
+                else if(result < 0)
+                {
+                    puts("Crashed and cannot restart");
+                    exit(1);
+                }
+            }
+            else exit(0);
+        }
+    }
 }
