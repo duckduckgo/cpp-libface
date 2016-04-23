@@ -687,11 +687,13 @@ static void handle_suggest(client_t *client, parsed_url_t &url) {
       mg_printf(conn, "%s:%d\n", results[i].first.c_str(), results[i].second);
       }
     */
-    headers["Content-Type"] = "text/plain; charset=UTF-8";
     if (has_cb) {
+        headers["Content-Type"] = "application/javascript; charset=UTF-8";
         body = cb + "(" + results_json(q, results, type) + ");\n";
     }
     else {
+        headers["Content-Type"] = "application/json; charset=UTF-8";
+        headers["Access-Control-Allow-Origin"] = "www.findx.com";
         body = results_json(q, results, type) + "\n";
     }
 
