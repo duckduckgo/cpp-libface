@@ -394,6 +394,20 @@ suggestions_json_array(vp_t& suggestions) {
 }
 
 std::string
+suggestion_scores_json_array(vp_t& suggestions) {
+    std::string ret = "[";
+    ret.reserve(OUTPUT_SIZE_RESERVE);
+    for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
+        escape_special_chars(i->phrase);
+
+        std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
+        ret += "\"Score " + uint_to_string(i->weight) + "\"" + trailer;
+    }
+    ret += "]";
+    return ret;
+}
+
+std::string
 results_json(std::string q, vp_t& suggestions, std::string const& type) {
     if (type == "list") {
         escape_special_chars(q);
