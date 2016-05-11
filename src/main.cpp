@@ -58,6 +58,7 @@ int line_limit = -1;            // The number of lines to import from the input 
 time_t started_at;              // When was the server started
 bool opt_show_help = false;     // Was --help requested?
 const char *ac_file = NULL;     // Path to the input file
+const char *query_url = NULL;   // Query URL
 int port = 6767;                // The port number on which to start the HTTP server
 const char *project_homepage_url = "https://github.com/duckduckgo/cpp-libface/";
 
@@ -362,17 +363,24 @@ escape_special_chars(std::string& str) {
     ret.swap(str);
 }
 
+void
+replace_spaces(std::string& str) {
+    for (size_t j = 0; j < str.size(); ++j) {
+        if (str[j]==' ') str[j]='+';
+}
+
 std::string
 rich_suggestions_json_array(vp_t& suggestions) {
     std::string ret = "[";
     ret.reserve(OUTPUT_SIZE_RESERVE);
     for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
-        escape_special_chars(i->phrase);
+        std::string phrase = i->phrase;
+        escape_special_chars(phrase);
         std::string snippet = i->snippet;
         escape_special_chars(snippet);
 
         std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
-        ret += " { \"phrase\": \"" + i->phrase + "\", \"score\": " + uint_to_string(i->weight) + 
+        ret += " { \"phrase\": \"" + phrase + "\", \"score\": " + uint_to_string(i->weight) + 
             (snippet.empty() ? "" : ", \"snippet\": \"" + snippet + "\"") + " }" + trailer;
     }
     ret += "]";
@@ -384,10 +392,40 @@ suggestions_json_array(vp_t& suggestions) {
     std::string ret = "[";
     ret.reserve(OUTPUT_SIZE_RESERVE);
     for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
+        std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
+        ret += "\"" + i->phrase + "\"" + trailer;
+    }
+    ret += "]";
+    return ret;
+}
+
+
+std::string
+suggestion_scores_json_array(vp_t& suggestions) {
+    std::string ret = "[";
+    ret.reserve(OUTPUT_SIZE_RESERVE);
+    for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
         escape_special_chars(i->phrase);
 
         std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
-        ret += "\"" + i->phrase + "\"" + trailer;
+        ret += "\"Score " + uint_to_string(i->weight) + "\"" + trailer;
+   }
+   ret += "]";
+   return ret;
+}
+
+std::string
+suggestion_urls_json_array(std::string domain, vp_t& suggestions) {
+    std::string ret = "[";
+    ret.reserve(OUTPUT_SIZE_RESERVE);
+    escape_special_chars(domain);
+    for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
+        std::string phrase = i->phrase;
+        escape_special_chars(phrase);
+        replace_spaces(phrase);
+
+        std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
+        ret += "\"" + domain + pharse + "\"" + trailer;
     }
     ret += "]";
     return ret;
@@ -398,8 +436,15 @@ results_json(std::string q, vp_t& suggestions, std::string const& type) {
     if (type == "list") {
         escape_special_chars(q);
         return "[ \"" + q + "\", " + suggestions_json_array(suggestions) + " ]";
-    }
-    else {
+    } else if (type == "opensearch") {
+        std::string domain = query_url ? std::string(query_url) : std::string();
+        escape_special_chars(q);
+        return "[ \"" + q + "\", "
+            + suggestions_json_array(suggestions) + ",\n"
+            + suggestion_scores_json_array(suggestions) + ",\n"
+            + suggestions_urls_json_array(domain, suggestions) 
+            + " ]";
+    } else {
         return rich_suggestions_json_array(suggestions);
     }
 }
@@ -687,11 +732,13 @@ static void handle_suggest(client_t *client, parsed_url_t &url) {
       mg_printf(conn, "%s:%d\n", results[i].first.c_str(), results[i].second);
       }
     */
-    headers["Content-Type"] = "text/plain; charset=UTF-8";
     if (has_cb) {
+        headers["Content-Type"] = "application/javascript; charset=UTF-8";
         body = cb + "(" + results_json(q, results, type) + ");\n";
     }
     else {
+        headers["Content-Type"] = "application/json; charset=UTF-8";
+        headers["Access-Control-Allow-Origin"] = "www.findx.com";
         body = results_json(q, results, type) + "\n";
     }
 
@@ -773,13 +820,14 @@ parse_options(int argc, char *argv[]) {
         int option_index = 0;
         static struct option long_options[] = {
             {"file", 1, 0, 'f'},
+            {"query_url", 1, 0, 'u'},
             {"port", 1, 0, 'p'},
             {"limit", 1, 0, 'l'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "f:p:l:h",
+        c = getopt_long(argc, argv, "f:u,p:l:h",
                         long_options, &option_index);
 
         if (c == -1)
@@ -790,6 +838,11 @@ parse_options(int argc, char *argv[]) {
         case 'f':
             DCERR("File: "<<optarg<<endl);
             ac_file = optarg;
+            break;
+
+        case 'u':
+            DCERR("Query URL: "<<optarg<<endl);
+            query_url = optarg;
             break;
 
         case 'p':
