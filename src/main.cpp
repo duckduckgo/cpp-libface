@@ -417,6 +417,7 @@ std::string
 suggestion_urls_json_array(std::string domain, vp_t& suggestions) {
     std::string ret = "[";
     ret.reserve(OUTPUT_SIZE_RESERVE);
+    escape_special_chars(domain);
     for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
         std::string phrase = i->phrase;
         escape_special_chars(phrase);
@@ -709,6 +710,7 @@ static void handle_suggest(client_t *client, parsed_url_t &url) {
     std::string sn   = url.query["n"];
     std::string cb   = unescape_query(url.query["callback"]);
     std::string type = unescape_query(url.query["type"]);
+    std::string targetUrl = unescape_query(url.query["targetUrl"]);
 
     DCERR("handle_suggest::q:"<<q<<", sn:"<<sn<<", callback: "<<cb<<endl);
 
@@ -731,12 +733,12 @@ static void handle_suggest(client_t *client, parsed_url_t &url) {
     */
     if (has_cb) {
         headers["Content-Type"] = "application/javascript; charset=UTF-8";
-        body = cb + "(" + results_json(q, results, type) + ");\n";
+        body = cb + "(" + results_json(q, results, type, targetUrl) + ");\n";
     }
     else {
         headers["Content-Type"] = "application/json; charset=UTF-8";
         headers["Access-Control-Allow-Origin"] = "www.findx.com";
-        body = results_json(q, results, type) + "\n";
+        body = results_json(q, results, type, targetUrl) + "\n";
     }
 
     write_response(client, 200, "OK", headers, body);
