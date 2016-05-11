@@ -362,17 +362,24 @@ escape_special_chars(std::string& str) {
     ret.swap(str);
 }
 
+void
+replace_spaces(std::string& str) {
+    for (size_t j = 0; j < str.size(); ++j) {
+        if (str[j]==' ') str[j]='+';
+}
+
 std::string
 rich_suggestions_json_array(vp_t& suggestions) {
     std::string ret = "[";
     ret.reserve(OUTPUT_SIZE_RESERVE);
     for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
-        escape_special_chars(i->phrase);
+        std::string phrase = i->phrase;
+        escape_special_chars(phrase);
         std::string snippet = i->snippet;
         escape_special_chars(snippet);
 
         std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
-        ret += " { \"phrase\": \"" + i->phrase + "\", \"score\": " + uint_to_string(i->weight) + 
+        ret += " { \"phrase\": \"" + phrase + "\", \"score\": " + uint_to_string(i->weight) + 
             (snippet.empty() ? "" : ", \"snippet\": \"" + snippet + "\"") + " }" + trailer;
     }
     ret += "]";
@@ -384,14 +391,13 @@ suggestions_json_array(vp_t& suggestions) {
     std::string ret = "[";
     ret.reserve(OUTPUT_SIZE_RESERVE);
     for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
-        escape_special_chars(i->phrase);
-
         std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
         ret += "\"" + i->phrase + "\"" + trailer;
     }
     ret += "]";
     return ret;
 }
+
 
 std::string
 suggestion_scores_json_array(vp_t& suggestions) {
@@ -402,18 +408,40 @@ suggestion_scores_json_array(vp_t& suggestions) {
 
         std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
         ret += "\"Score " + uint_to_string(i->weight) + "\"" + trailer;
+   }
+   ret += "]";
+   return ret;
+}
+
+std::string
+suggestion_urls_json_array(std::string domain, vp_t& suggestions) {
+    std::string ret = "[";
+    ret.reserve(OUTPUT_SIZE_RESERVE);
+    for (vp_t::iterator i = suggestions.begin(); i != suggestions.end(); ++i) {
+        std::string phrase = i->phrase;
+        escape_special_chars(phrase);
+        replace_spaces(phrase);
+
+        std::string trailer = i + 1 == suggestions.end() ? "\n" : ",\n";
+        ret += "\"" + domain + pharse + "\"" + trailer;
     }
     ret += "]";
     return ret;
 }
 
 std::string
-results_json(std::string q, vp_t& suggestions, std::string const& type) {
+results_json(std::string q, vp_t& suggestions, std::string const& type, std::string const& domain) {
     if (type == "list") {
         escape_special_chars(q);
         return "[ \"" + q + "\", " + suggestions_json_array(suggestions) + " ]";
-    }
-    else {
+    } else if (type == "opensearch") {
+        escape_special_chars(q);
+        return "[ \"" + q + "\", "
+            + suggestions_json_array(suggestions) + ",\n"
+            + suggestion_scores_json_array(suggestions) + ",\n"
+            + suggestions_urls_json_array(domain, suggestions) 
+            + " ]";
+    } else {
         return rich_suggestions_json_array(suggestions);
     }
 }
