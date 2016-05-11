@@ -58,6 +58,7 @@ int line_limit = -1;            // The number of lines to import from the input 
 time_t started_at;              // When was the server started
 bool opt_show_help = false;     // Was --help requested?
 const char *ac_file = NULL;     // Path to the input file
+const char *query_url = NULL;   // Query URL
 int port = 6767;                // The port number on which to start the HTTP server
 const char *project_homepage_url = "https://github.com/duckduckgo/cpp-libface/";
 
@@ -431,11 +432,12 @@ suggestion_urls_json_array(std::string domain, vp_t& suggestions) {
 }
 
 std::string
-results_json(std::string q, vp_t& suggestions, std::string const& type, std::string const& domain) {
+results_json(std::string q, vp_t& suggestions, std::string const& type) {
     if (type == "list") {
         escape_special_chars(q);
         return "[ \"" + q + "\", " + suggestions_json_array(suggestions) + " ]";
     } else if (type == "opensearch") {
+        std::string domain = query_url ? std::string(query_url) : std::string();
         escape_special_chars(q);
         return "[ \"" + q + "\", "
             + suggestions_json_array(suggestions) + ",\n"
@@ -710,7 +712,6 @@ static void handle_suggest(client_t *client, parsed_url_t &url) {
     std::string sn   = url.query["n"];
     std::string cb   = unescape_query(url.query["callback"]);
     std::string type = unescape_query(url.query["type"]);
-    std::string targetUrl = unescape_query(url.query["targetUrl"]);
 
     DCERR("handle_suggest::q:"<<q<<", sn:"<<sn<<", callback: "<<cb<<endl);
 
@@ -733,12 +734,12 @@ static void handle_suggest(client_t *client, parsed_url_t &url) {
     */
     if (has_cb) {
         headers["Content-Type"] = "application/javascript; charset=UTF-8";
-        body = cb + "(" + results_json(q, results, type, targetUrl) + ");\n";
+        body = cb + "(" + results_json(q, results, type) + ");\n";
     }
     else {
         headers["Content-Type"] = "application/json; charset=UTF-8";
         headers["Access-Control-Allow-Origin"] = "www.findx.com";
-        body = results_json(q, results, type, targetUrl) + "\n";
+        body = results_json(q, results, type) + "\n";
     }
 
     write_response(client, 200, "OK", headers, body);
@@ -819,13 +820,14 @@ parse_options(int argc, char *argv[]) {
         int option_index = 0;
         static struct option long_options[] = {
             {"file", 1, 0, 'f'},
+            {"query_url", 1, 0, 'u'},
             {"port", 1, 0, 'p'},
             {"limit", 1, 0, 'l'},
             {"help", 0, 0, 'h'},
             {0, 0, 0, 0}
         };
 
-        c = getopt_long(argc, argv, "f:p:l:h",
+        c = getopt_long(argc, argv, "f:u,p:l:h",
                         long_options, &option_index);
 
         if (c == -1)
@@ -836,6 +838,11 @@ parse_options(int argc, char *argv[]) {
         case 'f':
             DCERR("File: "<<optarg<<endl);
             ac_file = optarg;
+            break;
+
+        case 'u':
+            DCERR("Query URL: "<<optarg<<endl);
+            query_url = optarg;
             break;
 
         case 'p':
