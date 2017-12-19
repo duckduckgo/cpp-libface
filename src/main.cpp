@@ -27,12 +27,12 @@
 #include <fstream>
 #include <algorithm>
 
-#if !defined NMAX
+#ifndef NMAX
 #define NMAX 32
 #endif
 
 
-#if !defined INPUT_LINE_SIZE
+#ifndef INPUT_LINE_SIZE
 // Max. line size is 8191 bytes.
 #define INPUT_LINE_SIZE 8192
 #endif
