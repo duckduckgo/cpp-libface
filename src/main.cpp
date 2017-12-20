@@ -1,4 +1,3 @@
-
 // C-headers
 #include <stdio.h>
 #include <string.h>
@@ -12,7 +11,6 @@
 #include <sys/mman.h>
 #include <assert.h>
 #include <fcntl.h>
-
 
 // Custom-includes
 #include <include/httpserver.hpp>
@@ -29,12 +27,12 @@
 #include <fstream>
 #include <algorithm>
 
-#if !defined NMAX
+#ifndef NMAX
 #define NMAX 32
 #endif
 
 
-#if !defined INPUT_LINE_SIZE
+#ifndef INPUT_LINE_SIZE
 // Max. line size is 8191 bytes.
 #define INPUT_LINE_SIZE 8192
 #endif
@@ -44,9 +42,6 @@
 
 // Undefine the macro below to use C-style I/O routines.
 // #define USE_CXX_IO
-
-
-
 
 PhraseMap pm;                   // Phrase Map (usually a sorted array of strings)
 RMQ st;                         // An instance of the RMQ Data Structure
@@ -63,31 +58,32 @@ const char *project_homepage_url = "https://github.com/duckduckgo/cpp-libface/";
 
 enum {
     // We are in a non-WS state
-    ILP_BEFORE_NON_WS  = 0,
+    ILP_BEFORE_NON_WS,
 
     // We are parsing the weight (integer)
-    ILP_WEIGHT         = 1,
+    ILP_WEIGHT,
 
     // We are in the state after the weight but before the TAB
     // character separating the weight & the phrase
-    ILP_BEFORE_PTAB    = 2,
+    ILP_BEFORE_PTAB,
 
     // We are in the state after the TAB character and potentially
     // before the phrase starts (or at the phrase)
-    ILP_AFTER_PTAB     = 3,
+    ILP_AFTER_PTAB,
 
     // The state parsing the phrase
-    ILP_PHRASE         = 4,
+    ILP_PHRASE,
 
     // The state after the TAB character following the phrase
     // (currently unused)
-    ILP_AFTER_STAB     = 5,
+    ILP_AFTER_STAB,
 
     // The state in which we are parsing the snippet
-    ILP_SNIPPET        = 6
+    ILP_SNIPPET
 };
 
-enum { IMPORT_FILE_NOT_FOUND = 1,
+enum { 
+       IMPORT_FILE_NOT_FOUND = 1,
        IMPORT_MUNMAP_FAILED  = 2,
        IMPORT_MMAP_FAILED    = 3
 };
